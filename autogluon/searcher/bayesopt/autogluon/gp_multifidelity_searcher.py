@@ -158,15 +158,18 @@ class GPMultiFidelitySearcher(object):
         self.do_profile = (profiler is not None)
         self.first_is_default = first_is_default
         # Sums up profiling records across all get_config calls
-        self._profile_record = dict()
+        self._profile_record = {}
         if debug_log is not None:
-            deb_msg = "[GPMultiFidelitySearcher.__init__]\n"
-            deb_msg += ("- acquisition_class = {}\n".format(acquisition_class))
-            deb_msg += ("- local_minimizer_class = {}\n".format(local_minimizer_class))
-            deb_msg += ("- num_initial_candidates = {}\n".format(num_initial_candidates))
-            deb_msg += ("- num_initial_random_choices = {}\n".format(num_initial_random_choices))
-            deb_msg += ("- initial_scoring = {}\n".format(self.initial_scoring))
-            deb_msg += ("- first_is_default = {}".format(first_is_default))
+            deb_msg = (
+                "[GPMultiFidelitySearcher.__init__]\n"
+                + f"- acquisition_class = {acquisition_class}\n"
+            )
+
+            deb_msg += f"- local_minimizer_class = {local_minimizer_class}\n"
+            deb_msg += f"- num_initial_candidates = {num_initial_candidates}\n"
+            deb_msg += f"- num_initial_random_choices = {num_initial_random_choices}\n"
+            deb_msg += f"- initial_scoring = {self.initial_scoring}\n"
+            deb_msg += f"- first_is_default = {first_is_default}"
             logger.info(deb_msg)
 
     def update(self, config: CS.Configuration, reward: float, resource: int):
@@ -186,8 +189,8 @@ class GPMultiFidelitySearcher(object):
             candidate=config_ext, metrics=dictionarize_objective(crit_val)))
         if self.debug_log is not None:
             config_id = self.debug_log.config_id(config_ext)
-            msg = "Update for config_id {}: reward = {}, crit_val = {}".format(
-                config_id, reward, crit_val)
+            msg = f"Update for config_id {config_id}: reward = {reward}, crit_val = {crit_val}"
+
             logger.info(msg)
 
     def register_pending(self, config: CS.Configuration, milestone: int):
@@ -266,7 +269,7 @@ class GPMultiFidelitySearcher(object):
             target_resource = self.configspace_ext.resource_attr_range[0]
         blacklisted_candidates = self._get_blacklisted_candidates(target_resource)
         pick_random = (len(blacklisted_candidates) < self.num_initial_random_choices) or \
-            (not state.candidate_evaluations)
+                (not state.candidate_evaluations)
         if self.debug_log is not None:
             self.debug_log.start_get_config('random' if pick_random else 'BO')
         if pick_random:
@@ -277,8 +280,7 @@ class GPMultiFidelitySearcher(object):
                 if default_config and len(default_config.get_dictionary()) > 0:
                     config = default_config
                     if self.debug_log is not None:
-                        logger.info("Start with default config:\n{}".format(
-                            candidate_for_print(config)))
+                        logger.info(f"Start with default config:\n{candidate_for_print(config)}")
             if config is None:
                 if self.do_profile:
                     self.profiler.start('random')
@@ -326,10 +328,10 @@ class GPMultiFidelitySearcher(object):
             if self.do_profile:
                 self.profiler.start('total_nextcand')
             _config = bo_algorithm.next_candidates()
-            assert len(_config) > 0, \
-                ("Failed to find a configuration not already chosen "
-                 "before. Maybe there are no free configurations left? "
-                 "The blacklist size is {}".format(len(blacklisted_candidates)))
+            assert (
+                len(_config) > 0
+            ), f"Failed to find a configuration not already chosen before. Maybe there are no free configurations left? The blacklist size is {len(blacklisted_candidates)}"
+
             next_config = _config[0]
             if self.do_profile:
                 self.profiler.stop('total_nextcand')
@@ -494,9 +496,9 @@ def draw_random_candidate(
             break
     if config is None:
         raise AssertionError(
-            "Failed to sample a configuration not already chosen "
-            "before. Maybe there are no free configurations left? "
-            "The blacklist size is {}".format(len(blacklisted_candidates)))
+            f"Failed to sample a configuration not already chosen before. Maybe there are no free configurations left? The blacklist size is {len(blacklisted_candidates)}"
+        )
+
     return config, config_ext
 
 

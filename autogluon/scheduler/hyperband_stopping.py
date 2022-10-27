@@ -58,7 +58,7 @@ class HyperbandStopping_Manager(object):
         self._max_t = max_t
         self._min_t = grace_period
         # Maps str(task_id) -> bracket_id
-        self._task_info = dict()
+        self._task_info = {}
         self._num_stopped = 0
         self._brackets = []
         for s in range(brackets):
@@ -161,14 +161,7 @@ class HyperbandStopping_Manager(object):
             resource, self._reduction_factor, self._min_t, self._max_t)
 
     def __repr__(self):
-        reprstr = self.__class__.__name__ + '(' + \
-                  'reward_attr: ' + self._reward_attr + \
-                  ', time_attr: ' + self._time_attr + \
-                  ', reduction_factor: ' + str(self._reduction_factor) + \
-                  ', max_t: ' + str(self._max_t) + \
-                  ', brackets: ' + str(self._brackets) + \
-                  ')'
-        return reprstr
+        return f'{self.__class__.__name__}(reward_attr: {self._reward_attr}, time_attr: {self._time_attr}, reduction_factor: {str(self._reduction_factor)}, max_t: {str(self._max_t)}, brackets: {str(self._brackets)})'
 
 
 class StoppingBracket(object):
@@ -180,13 +173,16 @@ class StoppingBracket(object):
     def __init__(self, min_t, max_t, reduction_factor, s):
         self.rf = reduction_factor
         MAX_RUNGS = int(np.log(max_t / min_t) / np.log(self.rf) - s + 1)
-        self._rungs = [(min_t * self.rf ** (k + s), dict())
-                       for k in reversed(range(MAX_RUNGS))]
+        self._rungs = [
+            (min_t * self.rf ** (k + s), {}) for k in reversed(range(MAX_RUNGS))
+        ]
 
     def cutoff(self, recorded):
-        if not recorded:
-            return None
-        return np.percentile(list(recorded.values()), (1 - 1 / self.rf) * 100)
+        return (
+            np.percentile(list(recorded.values()), (1 - 1 / self.rf) * 100)
+            if recorded
+            else None
+        )
 
     def on_result(self, task, cur_iter, cur_rew):
         """
@@ -202,21 +198,22 @@ class StoppingBracket(object):
         :return: action, milestone_reached, next_milestone
         """
         assert cur_rew is not None, \
-            "Reward attribute must be a numerical value, not None"
+                "Reward attribute must be a numerical value, not None"
         action = True
         milestone_reached = False
         next_milestone = None
         task_key = str(task.task_id)
         for milestone, recorded in self._rungs:
-            if not (cur_iter < milestone or task_key in recorded):
+            if cur_iter >= milestone and task_key not in recorded:
                 # Note: It is important for model-based searchers that
                 # milestones are reached exactly, not jumped over. In
                 # particular, if a future milestone is reported via
                 # register_pending, its reward value has to be passed
                 # later on via update.
-                assert cur_iter == milestone, \
-                    "cur_iter = {} > {} = milestone. Make sure to report time attributes covering all milestones".format(
-                        cur_iter, milestone)
+                assert (
+                    cur_iter == milestone
+                ), f"cur_iter = {cur_iter} > {milestone} = milestone. Make sure to report time attributes covering all milestones"
+
                 milestone_reached = True
                 cutoff = self.cutoff(recorded)
                 if cutoff is not None and cur_rew < cutoff:
@@ -237,4 +234,4 @@ class StoppingBracket(object):
             "Iter {:.3f}: {}".format(milestone, self.cutoff(recorded))
             for milestone, recorded in self._rungs
         ])
-        return "Bracket: " + iters
+        return f"Bracket: {iters}"

@@ -69,17 +69,16 @@ def _create_common_objects(**kwargs):
     else:
         skip_optimization = None
     # Profiler
-    if kwargs.get('profiler', False):
-        profiler = GPMXNetSimpleProfiler()
-    else:
-        profiler = None
+    profiler = GPMXNetSimpleProfiler() if kwargs.get('profiler', False) else None
     # Conversion from reward to metric (strictly decreasing) and back
     _map_reward = kwargs.get('map_reward', '1_minus_x')
     if isinstance(_map_reward, str):
         _map_reward_name = _map_reward
         supp_map_reward = {'1_minus_x', 'minus_x'}
-        assert _map_reward_name in supp_map_reward, \
-            "This factory needs map_reward in {}".format(supp_map_reward)
+        assert (
+            _map_reward_name in supp_map_reward
+        ), f"This factory needs map_reward in {supp_map_reward}"
+
         _map_reward: MapReward = map_reward(
             const=1.0 if _map_reward_name == '1_minus_x' else 0.0)
     else:
@@ -146,15 +145,16 @@ def gp_fifo_searcher_factory(**kwargs) -> GPFIFOSearcher:
     :return: GPFIFOSearcher object
 
     """
-    assert kwargs['scheduler'] == 'fifo', \
-        "This factory needs scheduler = 'fifo' (instead of '{}')".format(
-            kwargs['scheduler'])
+    assert (
+        kwargs['scheduler'] == 'fifo'
+    ), f"This factory needs scheduler = 'fifo' (instead of '{kwargs['scheduler']}')"
+
     # Common objects
     hp_ranges_cs, random_seed, gpmodel, model_args, profiler, _map_reward, \
     skip_optimization, debug_log = \
         _create_common_objects(**kwargs)
 
-    gp_searcher = GPFIFOSearcher(
+    return GPFIFOSearcher(
         hp_ranges=hp_ranges_cs,
         random_seed=random_seed,
         gpmodel=gpmodel,
@@ -167,8 +167,8 @@ def gp_fifo_searcher_factory(**kwargs) -> GPFIFOSearcher:
         initial_scoring=kwargs['initial_scoring'],
         profiler=profiler,
         first_is_default=kwargs['first_is_default'],
-        debug_log=debug_log)
-    return gp_searcher
+        debug_log=debug_log,
+    )
 
 
 def gp_multifidelity_searcher_factory(**kwargs) -> GPMultiFidelitySearcher:
@@ -181,9 +181,10 @@ def gp_multifidelity_searcher_factory(**kwargs) -> GPMultiFidelitySearcher:
 
     """
     supp_schedulers = {'hyperband_stopping', 'hyperband_promotion'}
-    assert kwargs['scheduler'] in supp_schedulers, \
-        "This factory needs scheduler in {} (instead of '{}')".format(
-            supp_schedulers, kwargs['scheduler'])
+    assert (
+        kwargs['scheduler'] in supp_schedulers
+    ), f"This factory needs scheduler in {supp_schedulers} (instead of '{kwargs['scheduler']}')"
+
     # Common objects
     hp_ranges_cs, random_seed, gpmodel, model_args, profiler, _map_reward,\
     skip_optimization, debug_log = \
@@ -198,7 +199,7 @@ def gp_multifidelity_searcher_factory(**kwargs) -> GPMultiFidelitySearcher:
             "resource_acq must be 'bohb' or 'first'"
         resource_for_acquisition = resource_for_acquisition_first_milestone
     epoch_range = (kwargs['min_epochs'], kwargs['max_epochs'])
-    gp_searcher = GPMultiFidelitySearcher(
+    return GPMultiFidelitySearcher(
         hp_ranges=hp_ranges_cs,
         resource_attr_key=kwargs['resource_attribute'],
         resource_attr_range=epoch_range,
@@ -214,8 +215,8 @@ def gp_multifidelity_searcher_factory(**kwargs) -> GPMultiFidelitySearcher:
         initial_scoring=kwargs['initial_scoring'],
         profiler=profiler,
         first_is_default=kwargs['first_is_default'],
-        debug_log=debug_log)
-    return gp_searcher
+        debug_log=debug_log,
+    )
 
 
 def _common_defaults(is_hyperband: bool) -> (Set[str], dict, dict):

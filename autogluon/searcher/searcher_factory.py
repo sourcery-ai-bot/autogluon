@@ -79,13 +79,14 @@ def searcher_factory(name, **kwargs):
         else:
             return GPMultiFidelitySearcher(**kwargs)
     else:
-        raise AssertionError("name = '{}' not supported".format(name))
+        raise AssertionError(f"name = '{name}' not supported")
 
 
 def _check_supported_scheduler(name, scheduler, supp_schedulers):
     assert scheduler is not None, \
         "Scheduler must set search_options['scheduler']"
-    assert scheduler in supp_schedulers, \
-        "Searcher '{}' only works with schedulers {} (not with '{}')".format(
-            name, supp_schedulers, scheduler)
+    assert (
+        scheduler in supp_schedulers
+    ), f"Searcher '{name}' only works with schedulers {supp_schedulers} (not with '{scheduler}')"
+
     return scheduler

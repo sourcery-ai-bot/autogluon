@@ -89,11 +89,11 @@ def create_initial_candidates_scorer(
 def check_initial_candidates_scorer(initial_scoring: str) -> str:
     if initial_scoring is None:
         return DEFAULT_INITIAL_SCORING
-    else:
-        assert initial_scoring in SUPPORTED_INITIAL_SCORING, \
-            "initial_scoring = '{}' is not supported".format(
-                initial_scoring)
-        return initial_scoring
+    assert (
+        initial_scoring in SUPPORTED_INITIAL_SCORING
+    ), f"initial_scoring = '{initial_scoring}' is not supported"
+
+    return initial_scoring
 
 
 class GPFIFOSearcher(object):
@@ -166,7 +166,7 @@ class GPFIFOSearcher(object):
                 pending_evaluations=[])
         else:
             assert hp_ranges is init_state.hp_ranges, \
-                "hp_ranges and init_state.hp_ranges must be same object"
+                    "hp_ranges and init_state.hp_ranges must be same object"
         self.state_transformer = GPMXNetPendingCandidateStateTransformer(
             gpmodel=gpmodel,
             init_state=init_state,
@@ -182,20 +182,23 @@ class GPFIFOSearcher(object):
         self.first_is_default = first_is_default
         if first_is_default:
             assert isinstance(hp_ranges, HyperparameterRanges_CS), \
-                "If first_is_default, must have hp_ranges of HyperparameterRanges_CS type"
+                    "If first_is_default, must have hp_ranges of HyperparameterRanges_CS type"
         if debug_log is not None:
             assert isinstance(hp_ranges, HyperparameterRanges_CS), \
-                "If debug_log is given, must have hp_ranges of HyperparameterRanges_CS type"
+                    "If debug_log is given, must have hp_ranges of HyperparameterRanges_CS type"
         # Sums up profiling records across all get_config calls
-        self._profile_record = dict()
+        self._profile_record = {}
         if debug_log is not None:
-            deb_msg = "[GPFIFOSearcher.__init__]\n"
-            deb_msg += ("- acquisition_class = {}\n".format(acquisition_class))
-            deb_msg += ("- local_minimizer_class = {}\n".format(local_minimizer_class))
-            deb_msg += ("- num_initial_candidates = {}\n".format(num_initial_candidates))
-            deb_msg += ("- num_initial_random_choices = {}\n".format(num_initial_random_choices))
-            deb_msg += ("- initial_scoring = {}\n".format(self.initial_scoring))
-            deb_msg += ("- first_is_default = {}".format(first_is_default))
+            deb_msg = (
+                "[GPFIFOSearcher.__init__]\n"
+                + f"- acquisition_class = {acquisition_class}\n"
+            )
+
+            deb_msg += f"- local_minimizer_class = {local_minimizer_class}\n"
+            deb_msg += f"- num_initial_candidates = {num_initial_candidates}\n"
+            deb_msg += f"- num_initial_random_choices = {num_initial_random_choices}\n"
+            deb_msg += f"- initial_scoring = {self.initial_scoring}\n"
+            deb_msg += f"- first_is_default = {first_is_default}"
             logger.info(deb_msg)
 
     def update(self, config: Candidate, reward: float):
@@ -214,8 +217,8 @@ class GPFIFOSearcher(object):
             metrics=dictionarize_objective(crit_val)))
         if self.debug_log is not None:
             config_id = self.debug_log.config_id(config)
-            msg = "Update for config_id {}: reward = {}, crit_val = {}".format(
-                config_id, reward, crit_val)
+            msg = f"Update for config_id {config_id}: reward = {reward}, crit_val = {crit_val}"
+
             logger.info(msg)
 
     def register_pending(self, config: Candidate):
@@ -256,7 +259,7 @@ class GPFIFOSearcher(object):
             self.profiler.set_state(state, fit_hyperparams)
         blacklisted_candidates = compute_blacklisted_candidates(state)
         pick_random = (len(blacklisted_candidates) < self.num_initial_random_choices) or \
-            (not state.candidate_evaluations)
+                (not state.candidate_evaluations)
         if self.debug_log is not None:
             self.debug_log.start_get_config('random' if pick_random else 'BO')
         if pick_random:
@@ -267,8 +270,7 @@ class GPFIFOSearcher(object):
                 if default_config and len(default_config.get_dictionary()) > 0:
                     config = default_config
                     if self.debug_log is not None:
-                        logger.info("Start with default config:\n{}".format(
-                            candidate_for_print(config)))
+                        logger.info(f"Start with default config:\n{candidate_for_print(config)}")
             if config is None:
                 if self.do_profile:
                     self.profiler.start('random')
@@ -279,9 +281,9 @@ class GPFIFOSearcher(object):
                         break
                 if config is None:
                     raise AssertionError(
-                        "Failed to sample a configuration not already chosen "
-                        "before. Maybe there are no free configurations left? "
-                        "The blacklist size is {}".format(len(blacklisted_candidates)))
+                        f"Failed to sample a configuration not already chosen before. Maybe there are no free configurations left? The blacklist size is {len(blacklisted_candidates)}"
+                    )
+
                 if self.do_profile:
                     self.profiler.stop('random')
         else:
@@ -322,9 +324,9 @@ class GPFIFOSearcher(object):
             _config = bo_algorithm.next_candidates()
             if len(_config) == 0:
                 raise AssertionError(
-                    "Failed to find a configuration not already chosen "
-                    "before. Maybe there are no free configurations left? "
-                    "The blacklist size is {}".format(len(blacklisted_candidates)))
+                    f"Failed to find a configuration not already chosen before. Maybe there are no free configurations left? The blacklist size is {len(blacklisted_candidates)}"
+                )
+
             config = _config[0]
             if self.do_profile:
                 self.profiler.stop('total_nextcand')

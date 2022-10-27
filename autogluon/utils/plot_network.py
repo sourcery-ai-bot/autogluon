@@ -24,7 +24,7 @@ def plot_network(block, shape=(1, 3, 224, 224), savefile=False):
     if graphviz is None:
         raise RuntimeError("Cannot import graphviz.")
     if not isinstance(block, mx.gluon.HybridBlock):
-        raise ValueError("block must be HybridBlock, given {}".format(type(block)))
+        raise ValueError(f"block must be HybridBlock, given {type(block)}")
     data = mx.sym.var('data')
     sym = block(data)
     if isinstance(sym, tuple):

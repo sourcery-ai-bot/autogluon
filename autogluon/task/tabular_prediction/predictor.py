@@ -186,7 +186,7 @@ class TabularPredictor(BasePredictor):
         sign = self._learner.eval_metric._sign
         perf = perf * sign  # flip negative once again back to positive (so higher is no longer necessarily better)
         if not silent:
-            print("Predictive performance on given dataset: %s = %s" % (self.eval_metric, perf))
+            print(f"Predictive performance on given dataset: {self.eval_metric} = {perf}")
         return perf
 
     def evaluate_predictions(self, y_true, y_pred, silent=False, auxiliary_metrics=False, detailed_report=True):
@@ -319,23 +319,23 @@ class TabularPredictor(BasePredictor):
             # self._summarize('model_performance', 'Validation performance of individual models', results)
             #  self._summarize('model_best', 'Best model (based on validation performance)', results)
             # self._summarize('hyperparameter_tune', 'Hyperparameter-tuning used', results)
-            print("Number of models trained: %s" % len(results['model_performance']))
+            print(f"Number of models trained: {len(results['model_performance'])}")
             print("Types of models trained:")
             print(unique_model_types)
             num_fold_str = ""
             bagging_used = results['num_bagging_folds'] > 0
             if bagging_used:
                 num_fold_str = f" (with {results['num_bagging_folds']} folds)"
-            print("Bagging used: %s %s" % (bagging_used, num_fold_str))
+            print(f"Bagging used: {bagging_used} {num_fold_str}")
             num_stack_str = ""
             stacking_used = results['stack_ensemble_levels'] > 0
             if stacking_used:
                 num_stack_str = f" (with {results['stack_ensemble_levels']} levels)"
-            print("Stack-ensembling used: %s %s" % (stacking_used, num_stack_str))
+            print(f"Stack-ensembling used: {stacking_used} {num_stack_str}")
             hpo_str = ""
             if hpo_used and verbosity <= 2:
                 hpo_str = " (call fit_summary() with verbosity >= 3 to see detailed HPO info)"
-            print("Hyperparameter-tuning used: %s %s" % (hpo_used, hpo_str))
+            print(f"Hyperparameter-tuning used: {hpo_used} {hpo_str}")
             # TODO: uncomment once feature_prune is functional:  self._summarize('feature_prune', 'feature-selection used', results)
             print("User-specified hyperparameters:")
             print(results['hyperparameters_userspecified'])
@@ -481,16 +481,16 @@ class TabularPredictor(BasePredictor):
 
         """
         if inverse:
-            if proba:
-                labels_transformed = self._learner.label_cleaner.inverse_transform_proba(y=labels)
-            else:
-                labels_transformed = self._learner.label_cleaner.inverse_transform(y=labels)
+            return (
+                self._learner.label_cleaner.inverse_transform_proba(y=labels)
+                if proba
+                else self._learner.label_cleaner.inverse_transform(y=labels)
+            )
+
+        elif proba:
+            return self._learner.label_cleaner.transform_proba(y=labels)
         else:
-            if proba:
-                labels_transformed = self._learner.label_cleaner.transform_proba(y=labels)
-            else:
-                labels_transformed = self._learner.label_cleaner.transform(y=labels)
-        return labels_transformed
+            return self._learner.label_cleaner.transform(y=labels)
 
     # TODO: Consider adding time_limit option to early stop the feature importance process
     # TODO: Add option to specify list of features within features list, to check importances of groups of features. Make tuple to specify new feature name associated with group.
@@ -549,10 +549,10 @@ class TabularPredictor(BasePredictor):
 
         """
         allowed_kwarg_names = {'raw'}
-        for kwarg_name in kwargs.keys():
+        for kwarg_name in kwargs:
             if kwarg_name not in allowed_kwarg_names:
-                raise ValueError("Unknown keyword argument specified: %s" % kwarg_name)
-        if 'raw' in kwargs.keys():
+                raise ValueError(f"Unknown keyword argument specified: {kwarg_name}")
+        if 'raw' in kwargs:
             logger.log(30, 'Warning: `raw` is a deprecated parameter. Use `feature_stage` instead. Starting from AutoGluon 0.1.0, specifying `raw` as a parameter will cause an exception.')
             logger.log(30, 'Overriding `feature_stage` value with `raw` value.')
             raw = kwargs['raw']
@@ -604,8 +604,7 @@ class TabularPredictor(BasePredictor):
         -------
         Dictionary of original model names -> refit_full model names.
         """
-        refit_full_dict = self._learner.refit_ensemble_full(model=model)
-        return refit_full_dict
+        return self._learner.refit_ensemble_full(model=model)
 
     def get_model_best(self):
         """
@@ -707,11 +706,18 @@ class TabularPredictor(BasePredictor):
             models_to_check = leaderboard['model'].tolist()
             for i in range(1, len(models_to_check) - 1):
                 models_to_check_now = models_to_check[:i+1]
-                max_base_model_level = max([trainer.get_model_level(base_model) for base_model in models_to_check_now])
+                max_base_model_level = max(
+                    trainer.get_model_level(base_model)
+                    for base_model in models_to_check_now
+                )
+
                 weighted_ensemble_level = max_base_model_level + 1
                 models += trainer.generate_weighted_ensemble(X=X_train_stack_preds, y=y, level=weighted_ensemble_level, stack_name=stack_name, base_model_names=models_to_check_now, name_suffix=name_suffix + '_pareto' + str(i), time_limit=time_limits)
 
-        max_base_model_level = max([trainer.get_model_level(base_model) for base_model in base_models])
+        max_base_model_level = max(
+            trainer.get_model_level(base_model) for base_model in base_models
+        )
+
         weighted_ensemble_level = max_base_model_level + 1
         models += trainer.generate_weighted_ensemble(X=X_train_stack_preds, y=y, level=weighted_ensemble_level, stack_name=stack_name, base_model_names=base_models, name_suffix=name_suffix, time_limit=time_limits)
 

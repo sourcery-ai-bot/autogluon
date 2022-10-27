@@ -98,17 +98,14 @@ def get_preset_models(path, problem_type, eval_metric, hyperparameters, stopping
     if problem_type not in [BINARY, MULTICLASS, REGRESSION, SOFTCLASS]:
         raise NotImplementedError
 
-    if level in hyperparameters.keys():
-        level_key = level
-    else:
-        level_key = 'default'
+    level_key = level if level in hyperparameters.keys() else 'default'
     hp_level = hyperparameters[level_key]
     priority_dict = defaultdict(list)
     for model_type in hp_level:
         for model in hp_level[model_type]:
             model = copy.deepcopy(model)
             if AG_ARGS not in model:
-                model[AG_ARGS] = dict()
+                model[AG_ARGS] = {}
             if 'model_type' not in model[AG_ARGS]:
                 model[AG_ARGS]['model_type'] = model_type
             model_priority = model[AG_ARGS].get('priority', default_priorities.get(model_type, DEFAULT_CUSTOM_MODEL_PRIORITY))
@@ -160,15 +157,27 @@ def get_preset_models(path, problem_type, eval_metric, hyperparameters, stopping
 
 def get_preset_stacker_model(path, problem_type, eval_metric, num_classes=None,
                              hyperparameters={'NN': {}, 'GBM': {}}, hyperparameter_tune=False):
-    # TODO: Expand options to RF and NN
-    if problem_type == REGRESSION:
-        model = RFModel(path=path, name='LinearRegression', model=LinearRegression(),
-                        problem_type=problem_type, eval_metric=eval_metric)
-    else:
-        model = RFModel(path=path, name='LogisticRegression', model=LogisticRegression(
-            solver='liblinear', multi_class='auto', max_iter=500,  # n_jobs=-1  # TODO: HP set to hide warnings, but we should find optimal HP for this
-        ), problem_type=problem_type, eval_metric=eval_metric)
-    return model
+    return (
+        RFModel(
+            path=path,
+            name='LinearRegression',
+            model=LinearRegression(),
+            problem_type=problem_type,
+            eval_metric=eval_metric,
+        )
+        if problem_type == REGRESSION
+        else RFModel(
+            path=path,
+            name='LogisticRegression',
+            model=LogisticRegression(
+                solver='liblinear',
+                multi_class='auto',
+                max_iter=500,  # n_jobs=-1  # TODO: HP set to hide warnings, but we should find optimal HP for this
+            ),
+            problem_type=problem_type,
+            eval_metric=eval_metric,
+        )
+    )
 
 
 def get_preset_models_softclass(path, hyperparameters, num_classes=None, hyperparameter_tune=False, name_suffix=''):

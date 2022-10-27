@@ -156,9 +156,8 @@ class AbstractLearner:
         return y_pred
 
     def get_inputs_to_stacker(self, dataset=None, model=None, base_models: list = None, use_orig_features=True):
-        if model is not None or base_models is not None:
-            if model is not None and base_models is not None:
-                raise AssertionError('Only one of `model`, `base_models` is allowed to be set.')
+        if model is not None and base_models is not None:
+            raise AssertionError('Only one of `model`, `base_models` is allowed to be set.')
 
         trainer = self.load_trainer()
         if dataset is None:
@@ -280,9 +279,11 @@ class AbstractLearner:
                 if len(base_model_set) == 1:
                     pred_time_test[model] = pred_time_test_marginal[base_model_set[0]]
                 else:
-                    pred_time_test_full_num = 0
-                    for base_model in base_model_set:
-                        pred_time_test_full_num += pred_time_test_marginal[base_model]
+                    pred_time_test_full_num = sum(
+                        pred_time_test_marginal[base_model]
+                        for base_model in base_model_set
+                    )
+
                     pred_time_test[model] = pred_time_test_full_num
             else:
                 pred_time_test[model] = None
@@ -385,16 +386,16 @@ class AbstractLearner:
             if self.problem_type == MULTICLASS:
                 y_true_cleaned = y_true_cleaned.fillna(-1)  # map unknown classes to -1
             performance = self.eval_metric(y_true_cleaned, y_pred_cleaned)
-        else:
-            if self.problem_type == MULTICLASS:
-                y_true_cleaned = self.label_cleaner.transform(y_true)
-                y_true_cleaned = y_true_cleaned.fillna(-1)
-                if (not trainer.eval_metric_expects_y_pred) and (-1 in y_true_cleaned.unique()):
-                    # log_loss / pac_score
-                    raise ValueError(f'Multiclass scoring with eval_metric=\'{self.eval_metric.name}\' does not support unknown classes.')
-                performance = self.eval_metric(y_true_cleaned, y_pred)
+        elif self.problem_type == MULTICLASS:
+            y_true_cleaned = self.label_cleaner.transform(y_true)
+            y_true_cleaned = y_true_cleaned.fillna(-1)
+            if (not trainer.eval_metric_expects_y_pred) and (-1 in y_true_cleaned.unique()):
+                # log_loss / pac_score
+                raise ValueError(f'Multiclass scoring with eval_metric=\'{self.eval_metric.name}\' does not support unknown classes.')
             else:
-                performance = self.eval_metric(y_true, y_pred)
+                performance = self.eval_metric(y_true_cleaned, y_pred)
+        else:
+            performance = self.eval_metric(y_true, y_pred)
 
         metric = self.eval_metric.name
 
@@ -526,9 +527,9 @@ class AbstractLearner:
             if feature_stage == 'original':
                 return trainer._get_feature_importance_raw(model=model, X=X, y=y, features_to_use=features, subsample_size=subsample_size, transform_func=self.transform_features, silent=silent)
             X = self.transform_features(X)
+        elif feature_stage == 'original':
+            raise AssertionError('Feature importance `dataset` cannot be None if `feature_stage==\'original\'`. A test dataset must be specified.')
         else:
-            if feature_stage == 'original':
-                raise AssertionError('Feature importance `dataset` cannot be None if `feature_stage==\'original\'`. A test dataset must be specified.')
             y = None
         raw = feature_stage == 'transformed'
         return trainer.get_feature_importance(X=X, y=y, model=model, features=features, raw=raw, subsample_size=subsample_size, silent=silent)
@@ -556,7 +557,7 @@ class AbstractLearner:
             'version': self.version,
         }
 
-        learner_info.update(trainer_info)
+        learner_info |= trainer_info
         return learner_info
 
     @staticmethod
@@ -577,11 +578,11 @@ class AbstractLearner:
             obj.set_contexts(path_context)
             obj.trainer_path = obj.model_context
             obj.reset_paths = reset_paths
-            # TODO: Still have to change paths of models in trainer + trainer object path variables
-            return obj
         else:
             obj.set_contexts(obj.path_context)
-            return obj
+
+        # TODO: Still have to change paths of models in trainer + trainer object path variables
+        return obj
 
     def save_trainer(self, trainer):
         if self.is_trainer_present:

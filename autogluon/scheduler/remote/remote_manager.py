@@ -72,7 +72,7 @@ class RemoteManager(object):
         remotes = []
         for node_ip in ip_addrs:
             if node_ip in cls.NODES.keys():
-                logger.warning('Already added remote {}'.format(node_ip))
+                logger.warning(f'Already added remote {node_ip}')
                 continue
             port = cls.get_port_id()
             remote = Remote(node_ip, port)
@@ -104,6 +104,6 @@ class RemoteManager(object):
     def __repr__(self):
         reprstr = self.__class__.__name__ + '(\n'
         for node in self.NODES.values():
-           reprstr += '{}, \n'.format(node)
+            reprstr += f'{node}, \n'
         reprstr += ')\n'
         return reprstr

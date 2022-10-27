@@ -110,13 +110,9 @@ class DefaultLearner(AbstractLearner):
     def general_data_processing(self, X: DataFrame, X_val: DataFrame, holdout_frac: float, num_bagging_folds: int):
         """ General data processing steps used for all models. """
         X = copy.deepcopy(X)
-        # TODO: We should probably uncomment the below lines, NaN label should be treated as just another value in multiclass classification -> We will have to remove missing, compute problem type, and add back missing if multiclass
-        # if self.problem_type == MULTICLASS:
-        #     X[self.label] = X[self.label].fillna('')
-
-        # Remove all examples with missing labels from this dataset:
-        missinglabel_inds = [index for index, x in X[self.label].isna().iteritems() if x]
-        if len(missinglabel_inds) > 0:
+        if missinglabel_inds := [
+            index for index, x in X[self.label].isna().iteritems() if x
+        ]:
             logger.warning(f"Warning: Ignoring {len(missinglabel_inds)} (out of {len(X)}) training examples for which the label value in column '{self.label}' is missing")
             X = X.drop(missinglabel_inds, axis=0)
 
@@ -179,12 +175,10 @@ class DefaultLearner(AbstractLearner):
 
     def adjust_threshold_if_necessary(self, y, threshold, holdout_frac, num_bagging_folds):
         new_threshold, new_holdout_frac, new_num_bagging_folds = self._adjust_threshold_if_necessary(y, threshold, holdout_frac, num_bagging_folds)
-        if new_threshold != threshold:
-            if new_threshold < threshold:
-                logger.warning(f'Warning: Updated label_count_threshold from {threshold} to {new_threshold} to avoid cutting too many classes.')
-        if new_holdout_frac != holdout_frac:
-            if new_holdout_frac > holdout_frac:
-                logger.warning(f'Warning: Updated holdout_frac from {holdout_frac} to {new_holdout_frac} to avoid cutting too many classes.')
+        if new_threshold != threshold and new_threshold < threshold:
+            logger.warning(f'Warning: Updated label_count_threshold from {threshold} to {new_threshold} to avoid cutting too many classes.')
+        if new_holdout_frac != holdout_frac and new_holdout_frac > holdout_frac:
+            logger.warning(f'Warning: Updated holdout_frac from {holdout_frac} to {new_holdout_frac} to avoid cutting too many classes.')
         if new_num_bagging_folds != num_bagging_folds:
             logger.warning(f'Warning: Updated num_bagging_folds from {num_bagging_folds} to {new_num_bagging_folds} to avoid cutting too many classes.')
         return new_threshold, new_holdout_frac, new_num_bagging_folds

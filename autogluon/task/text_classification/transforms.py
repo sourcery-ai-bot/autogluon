@@ -57,9 +57,7 @@ class BERTDatasetTransform:
         self._label_dtype = 'int32' if class_labels else 'float32'
         self.vocab = vocab
         if has_label and class_labels:
-            self._label_map = {}
-            for (i, label) in enumerate(class_labels):
-                self._label_map[label] = i
+            self._label_map = {label: i for i, label in enumerate(class_labels)}
             if label_alias:
                 for key in label_alias:
                     self._label_map[key] = self._label_map[label_alias[key]]
@@ -120,13 +118,12 @@ class BERTDatasetTransform:
         np.array: classification task: label id in 'int32', shape (batch_size, 1),
             regression task: label in 'float32', shape (batch_size, 1)
         """
-        if self.has_label:
-            input_ids, valid_length, segment_ids = self._bert_xform(line[:-1])
-            label = line[-1]
-            # map to int if class labels are available
-            if self.class_labels:
-                label = self._label_map[label]
-            label = np.array([label], dtype=self._label_dtype)
-            return input_ids, valid_length, segment_ids, label
-        else:
+        if not self.has_label:
             return self._bert_xform(line)
+        input_ids, valid_length, segment_ids = self._bert_xform(line[:-1])
+        label = line[-1]
+        # map to int if class labels are available
+        if self.class_labels:
+            label = self._label_map[label]
+        label = np.array([label], dtype=self._label_dtype)
+        return input_ids, valid_length, segment_ids, label

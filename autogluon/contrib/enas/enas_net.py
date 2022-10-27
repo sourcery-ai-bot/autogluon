@@ -44,8 +44,10 @@ class ENAS_MBNet(gluon.HybridBlock):
                     block_arg.update(in_channels=out_channels, stride=1,
                                      input_size=input_size)
 
-                for _ in range(block_arg.num_repeat - 1):
-                    _blocks.append(ENAS_MbBlock(**block_arg))
+                _blocks.extend(
+                    ENAS_MbBlock(**block_arg)
+                    for _ in range(block_arg.num_repeat - 1)
+                )
 
             if blocks is not None:
                 self._blocks = ENAS_Sequential(blocks)
@@ -98,19 +100,128 @@ class ENAS_MBNet(gluon.HybridBlock):
 
 def get_enas_blockargs():
     """ Creates a predefined efficientnet model, which searched by original paper. """
-    blocks_args = [
-        Dict(kernel=3, num_repeat=1, channels=16, expand_ratio=1, stride=1, se_ratio=0.25, in_channels=32),
-        Dict(kernel=3, num_repeat=1, channels=16, expand_ratio=1, stride=1, se_ratio=0.25, in_channels=16, with_zero=True),
-        Dict(kernel=Categorical(3, 5, 7), num_repeat=1, channels=24, expand_ratio=Categorical(3, 6), stride=2, se_ratio=0.25, in_channels=16),
-        Dict(kernel=Categorical(3, 5, 7), num_repeat=3, channels=24, expand_ratio=Categorical(3, 6), stride=1, se_ratio=0.25, in_channels=24, with_zero=True),
-        Dict(kernel=Categorical(3, 5, 7), num_repeat=1, channels=40, expand_ratio=Categorical(3, 6), stride=2, se_ratio=0.25, in_channels=24),
-        Dict(kernel=Categorical(3, 5, 7), num_repeat=3, channels=40, expand_ratio=Categorical(3, 6), stride=1, se_ratio=0.25, in_channels=40, with_zero=True),
-        Dict(kernel=Categorical(3, 5, 7), num_repeat=1, channels=80, expand_ratio=Categorical(3, 6), stride=2, se_ratio=0.25, in_channels=40),
-        Dict(kernel=Categorical(3, 5, 7), num_repeat=4, channels=80, expand_ratio=Categorical(3, 6), stride=1, se_ratio=0.25, in_channels=80, with_zero=True),
-        Dict(kernel=Categorical(3, 5, 7), num_repeat=1, channels=112, expand_ratio=Categorical(3, 6), stride=1, se_ratio=0.25, in_channels=80),
-        Dict(kernel=Categorical(3, 5, 7), num_repeat=4, channels=112, expand_ratio=Categorical(3, 6), stride=1, se_ratio=0.25, in_channels=112, with_zero=True),
-        Dict(kernel=Categorical(3, 5, 7), num_repeat=1, channels=192, expand_ratio=Categorical(3, 6), stride=2, se_ratio=0.25, in_channels=112),
-        Dict(kernel=Categorical(3, 5, 7), num_repeat=5, channels=192, expand_ratio=Categorical(3, 6), stride=1, se_ratio=0.25, in_channels=192, with_zero=True),
-        Dict(kernel=3, num_repeat=1, channels=320, expand_ratio=6, stride=1, se_ratio=0.25, in_channels=192),
+    return [
+        Dict(
+            kernel=3,
+            num_repeat=1,
+            channels=16,
+            expand_ratio=1,
+            stride=1,
+            se_ratio=0.25,
+            in_channels=32,
+        ),
+        Dict(
+            kernel=3,
+            num_repeat=1,
+            channels=16,
+            expand_ratio=1,
+            stride=1,
+            se_ratio=0.25,
+            in_channels=16,
+            with_zero=True,
+        ),
+        Dict(
+            kernel=Categorical(3, 5, 7),
+            num_repeat=1,
+            channels=24,
+            expand_ratio=Categorical(3, 6),
+            stride=2,
+            se_ratio=0.25,
+            in_channels=16,
+        ),
+        Dict(
+            kernel=Categorical(3, 5, 7),
+            num_repeat=3,
+            channels=24,
+            expand_ratio=Categorical(3, 6),
+            stride=1,
+            se_ratio=0.25,
+            in_channels=24,
+            with_zero=True,
+        ),
+        Dict(
+            kernel=Categorical(3, 5, 7),
+            num_repeat=1,
+            channels=40,
+            expand_ratio=Categorical(3, 6),
+            stride=2,
+            se_ratio=0.25,
+            in_channels=24,
+        ),
+        Dict(
+            kernel=Categorical(3, 5, 7),
+            num_repeat=3,
+            channels=40,
+            expand_ratio=Categorical(3, 6),
+            stride=1,
+            se_ratio=0.25,
+            in_channels=40,
+            with_zero=True,
+        ),
+        Dict(
+            kernel=Categorical(3, 5, 7),
+            num_repeat=1,
+            channels=80,
+            expand_ratio=Categorical(3, 6),
+            stride=2,
+            se_ratio=0.25,
+            in_channels=40,
+        ),
+        Dict(
+            kernel=Categorical(3, 5, 7),
+            num_repeat=4,
+            channels=80,
+            expand_ratio=Categorical(3, 6),
+            stride=1,
+            se_ratio=0.25,
+            in_channels=80,
+            with_zero=True,
+        ),
+        Dict(
+            kernel=Categorical(3, 5, 7),
+            num_repeat=1,
+            channels=112,
+            expand_ratio=Categorical(3, 6),
+            stride=1,
+            se_ratio=0.25,
+            in_channels=80,
+        ),
+        Dict(
+            kernel=Categorical(3, 5, 7),
+            num_repeat=4,
+            channels=112,
+            expand_ratio=Categorical(3, 6),
+            stride=1,
+            se_ratio=0.25,
+            in_channels=112,
+            with_zero=True,
+        ),
+        Dict(
+            kernel=Categorical(3, 5, 7),
+            num_repeat=1,
+            channels=192,
+            expand_ratio=Categorical(3, 6),
+            stride=2,
+            se_ratio=0.25,
+            in_channels=112,
+        ),
+        Dict(
+            kernel=Categorical(3, 5, 7),
+            num_repeat=5,
+            channels=192,
+            expand_ratio=Categorical(3, 6),
+            stride=1,
+            se_ratio=0.25,
+            in_channels=192,
+            with_zero=True,
+        ),
+        Dict(
+            kernel=3,
+            num_repeat=1,
+            channels=320,
+            expand_ratio=6,
+            stride=1,
+            se_ratio=0.25,
+            in_channels=192,
+        ),
     ]
-    return blocks_args

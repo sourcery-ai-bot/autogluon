@@ -26,7 +26,7 @@ def get_dataset(name=None, *args, **kwargs):
         kwargs['label']: str or int Default: last column
             Index or column name of the label/target column.
     """
-    path = kwargs.get('filepath', None)
+    path = kwargs.get('filepath')
     if path is not None:
         if path.endswith('.tsv') or path.endswith('.csv'):
             return CustomTSVClassificationTask(*args, **kwargs)
@@ -219,7 +219,10 @@ class CustomTSVClassificationTask(AbstractCustomTask):
         self._read(**kwargs)
         self.is_pair = False
         self._label_column_id = self._index_label_column(**kwargs)
-        self.class_labels = list(set([sample[self._label_column_id] for sample in self.dataset]))
+        self.class_labels = list(
+            {sample[self._label_column_id] for sample in self.dataset}
+        )
+
         self.metric = Accuracy()
         super(CustomTSVClassificationTask, self).__init__(self.class_labels, self.metric, self.is_pair)
 
@@ -243,7 +246,7 @@ class CustomTSVClassificationTask(AbstractCustomTask):
             raise ValueError('Please specify either train or dev dataset.')
 
     def _read(self, **kwargs):
-        low_memory = kwargs.get('low_memory', None)
+        low_memory = kwargs.get('low_memory')
         if low_memory is None:
             kwargs['low_memory'] = False
         split_ratio = kwargs.pop('split_ratio', 0.8)
@@ -265,20 +268,19 @@ class CustomTSVClassificationTask(AbstractCustomTask):
         self.train_sampler, self.dev_sampler = get_split_samplers(self.dataset, split_ratio=split_ratio)
 
     def _index_label_column(self, **kwargs):
-        label_column_id = kwargs.get('label', None)
+        label_column_id = kwargs.get('label')
         if label_column_id is None:
             warnings.warn('By default we are using the last column as the label column, '
                           'if you wish to specify the label column by yourself or the column is not label column,'
                           'please specify label column using either the column name or index by using label=x.')
             return len(self.dataset[0]) - 1
         if isinstance(label_column_id, str):
-            usecols = kwargs.get('usecols', None)
+            usecols = kwargs.get('usecols')
             if usecols is None:
                 raise ValueError('Please specify the `usecols` when specifying the label column.')
-            else:
-                for i, col in enumerate(usecols):
-                    if col == label_column_id:
-                        return i
+            for i, col in enumerate(usecols):
+                if col == label_column_id:
+                    return i
         elif isinstance(label_column_id, int):
             return label_column_id
         else:

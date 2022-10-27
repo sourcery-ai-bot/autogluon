@@ -102,7 +102,7 @@ class SKoptSearcher(BaseSearcher):
             elif 'ordinal' in hp_type:
                 hp_dimension = Categorical(hp_obj.sequence, name=hp)
             else:
-                raise ValueError("unknown hyperparameter type: %s" % hp)
+                raise ValueError(f"unknown hyperparameter type: {hp}")
             skopt_hpspace.append(hp_dimension)
         skopt_keys = {
             'base_estimator', 'n_random_starts', 'n_initial_points',
@@ -208,10 +208,7 @@ class SKoptSearcher(BaseSearcher):
         -------
         Object of same type as: `skOpt.Optimizer.ask()`
         """
-        point = []
-        for hp in self.hp_ordering:
-            point.append(config[hp])
-        return point
+        return [config[hp] for hp in self.hp_ordering]
     
     def skopt2config(self, point):
         """ Converts skopt point (list object) to autogluon config format (dict object. 

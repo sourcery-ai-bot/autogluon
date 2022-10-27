@@ -444,7 +444,7 @@ class TabularPrediction(BaseTask):
         >>> predictor = task.fit(train_data=train_data, label=label_column, eval_metric=eval_metric, auto_stack=True, time_limits=time_limits)
         """
         assert search_strategy != 'bayesopt_hyperband', \
-            "search_strategy == 'bayesopt_hyperband' not yet supported"
+                "search_strategy == 'bayesopt_hyperband' not yet supported"
         if verbosity < 0:
             verbosity = 0
         elif verbosity > 4:
@@ -468,9 +468,9 @@ class TabularPrediction(BaseTask):
             'random_seed',
             'enable_fit_continuation'  # TODO: Remove on 0.1.0 release
         }
-        for kwarg_name in kwargs.keys():
+        for kwarg_name in kwargs:
             if kwarg_name not in allowed_kwarg_names:
-                raise ValueError("Unknown keyword argument specified: %s" % kwarg_name)
+                raise ValueError(f"Unknown keyword argument specified: {kwarg_name}")
 
         if isinstance(train_data,  str):
             train_data = TabularDataset(file_path=train_data)
@@ -493,7 +493,7 @@ class TabularPrediction(BaseTask):
         cache_data = kwargs.get('cache_data', True)
         refit_full = kwargs.get('refit_full', False)
         # TODO: Remove on 0.1.0 release
-        if 'enable_fit_continuation' in kwargs.keys():
+        if 'enable_fit_continuation' in kwargs:
             logger.log(30, 'Warning: `enable_fit_continuation` is a deprecated parameter. It has been renamed to `cache_data`. Starting from AutoGluon 0.1.0, specifying `enable_fit_continuation` as a parameter will cause an exception.')
             logger.log(30, 'Setting `cache_data` value equal to `enable_fit_continuation` value.')
             cache_data = kwargs['enable_fit_continuation']
@@ -515,7 +515,7 @@ class TabularPrediction(BaseTask):
             dist_ip_addrs = []
 
         if search_options is None:
-            search_options = dict()
+            search_options = {}
 
         if hyperparameters is None:
             hyperparameters = 'default'
@@ -541,14 +541,10 @@ class TabularPrediction(BaseTask):
             stack_ensemble_levels = min(1, max(0, math.floor(num_train_rows / 750)))
 
         if num_bagging_sets is None:
-            if num_bagging_folds >= 2:
-                if time_limits is not None:
-                    num_bagging_sets = 20
-                else:
-                    num_bagging_sets = 1
+            if num_bagging_folds >= 2 and time_limits is not None:
+                num_bagging_sets = 20
             else:
                 num_bagging_sets = 1
-
         label_count_threshold = kwargs.get('label_count_threshold', 10)
         if num_bagging_folds is not None:  # Ensure there exist sufficient labels for stratified splits across all bags
             label_count_threshold = max(label_count_threshold, num_bagging_folds)
@@ -628,8 +624,7 @@ class TabularPrediction(BaseTask):
         if keep_only_best:
             predictor.delete_models(models_to_keep='best', dry_run=False)
 
-        save_space = kwargs.get('save_space', False)
-        if save_space:
+        if save_space := kwargs.get('save_space', False):
             predictor.save_space()
 
         return predictor

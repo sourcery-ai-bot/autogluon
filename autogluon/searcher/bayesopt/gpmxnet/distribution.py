@@ -43,8 +43,9 @@ class Gamma(Distribution):
 
     @staticmethod
     def _assert_positive_number(x, name):
-        assert isinstance(x, numbers.Real) and x > 0.0, \
-            "{} = {}, must be positive number".format(name, x)
+        assert (
+            isinstance(x, numbers.Real) and x > 0.0
+        ), f"{name} = {x}, must be positive number"
 
     def negative_log_density(self, F, x):
         x_safe = F.maximum(x, MIN_POSTERIOR_VARIANCE)

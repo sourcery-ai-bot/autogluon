@@ -45,11 +45,7 @@ class Getmodel_kwargs:
         self._hybridize = hybridize
         self._hard_weight = hard_weight
 
-        if multi_precision:
-            self._dtype = 'float16'
-        else:
-            self._dtype = 'float32'
-
+        self._dtype = 'float16' if multi_precision else 'float32'
         if use_gn:
             from gluoncv.nn import GroupNorm
             self._kwargs['norm_layer'] = GroupNorm
@@ -63,10 +59,7 @@ class Getmodel_kwargs:
         if last_gamma:
             self._kwargs['last_gamma'] = True
 
-        if self._model_teacher is not None and self._hard_weight < 1.0:
-            self.distillation = True
-        else:
-            self.distillation = False
+        self.distillation = self._model_teacher is not None and self._hard_weight < 1.0
 
     @property
     def dtype(self):

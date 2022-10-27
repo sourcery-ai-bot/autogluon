@@ -50,20 +50,16 @@ def download(url, path=None, overwrite=False, sha1_hash=None):
         fname = url.split('/')[-1]
     else:
         path = os.path.expanduser(path)
-        if os.path.isdir(path):
-            fname = os.path.join(path, url.split('/')[-1])
-        else:
-            fname = path
-
+        fname = os.path.join(path, url.split('/')[-1]) if os.path.isdir(path) else path
     if overwrite or not os.path.exists(fname) or (sha1_hash and not check_sha1(fname, sha1_hash)):
         dirname = os.path.dirname(os.path.abspath(os.path.expanduser(fname)))
         if not os.path.exists(dirname):
             os.makedirs(dirname)
 
-        logger.info('Downloading %s from %s...'%(fname, url))
+        logger.info(f'Downloading {fname} from {url}...')
         r = requests.get(url, stream=True)
         if r.status_code != 200:
-            raise RuntimeError("Failed downloading url %s"%url)
+            raise RuntimeError(f"Failed downloading url {url}")
         total_length = r.headers.get('content-length')
         with open(fname, 'wb') as f:
             if total_length is None: # no content length header
@@ -78,10 +74,10 @@ def download(url, path=None, overwrite=False, sha1_hash=None):
                     f.write(chunk)
 
         if sha1_hash and not check_sha1(fname, sha1_hash):
-            raise UserWarning('File {} is downloaded but the content hash does not match. ' \
-                              'The repo may be outdated or download may be incomplete. ' \
-                              'If the "repo_url" is overridden, consider switching to ' \
-                              'the default repo.'.format(fname))
+            raise UserWarning(
+                f'File {fname} is downloaded but the content hash does not match. The repo may be outdated or download may be incomplete. If the "repo_url" is overridden, consider switching to the default repo.'
+            )
+
 
     return fname
 
@@ -104,11 +100,11 @@ def check_sha1(filename, sha1_hash):
     sha1 = hashlib.sha1()
     with open(filename, 'rb') as f:
         while True:
-            data = f.read(1048576)
-            if not data:
-                break
-            sha1.update(data)
+            if data := f.read(1048576):
+                sha1.update(data)
 
+            else:
+                break
     return sha1.hexdigest() == sha1_hash
 
 
@@ -118,9 +114,7 @@ def mkdir(path):
     try:
         os.makedirs(path)
     except OSError as exc:  # Python >2.5
-        if exc.errno == errno.EEXIST and os.path.isdir(path):
-            pass
-        else:
+        if exc.errno != errno.EEXIST or not os.path.isdir(path):
             raise
 
 def raise_num_file(nofile_atleast=4096):
@@ -145,9 +139,12 @@ def raise_num_file(nofile_atleast=4096):
             res.setrlimit(res.RLIMIT_NOFILE,(soft,hard))
         except (ValueError,res.error):
             try:
-               hard = soft
-               logger.warning('trouble with max limit, retrying with soft,hard {},{}'.format(soft,hard))
-               res.setrlimit(res.RLIMIT_NOFILE,(soft,hard))
+                hard = soft
+                logger.warning(
+                    f'trouble with max limit, retrying with soft,hard {soft},{hard}'
+                )
+
+                res.setrlimit(res.RLIMIT_NOFILE,(soft,hard))
             except Exception:
                logger.warning('failed to set ulimit')
                soft,hard = res.getrlimit(res.RLIMIT_NOFILE)

@@ -27,9 +27,7 @@ class OheFeaturesGenerator(BaseEstimator, TransformerMixin):
         # Update feature names
         self._feature_names = []
         for k, v in self.labels.items():
-            for f in k + '_' + v[0]:
-                self._feature_names.append(f)
-
+            self._feature_names.extend(iter(f'{k}_{v[0]}'))
         return hstack(Xs)
 
     def _normalize(self, col):

@@ -66,11 +66,11 @@ class TabularDataset(pd.DataFrame):
         return pd.Series
 
     def __init__(self, *args, **kwargs):
-        file_path = kwargs.get('file_path', None)
-        name = kwargs.get('name', None)
-        feature_types = kwargs.get('feature_types', None)
-        df = kwargs.get('df', None)
-        subsample = kwargs.get('subsample', None)
+        file_path = kwargs.get('file_path')
+        name = kwargs.get('name')
+        feature_types = kwargs.get('feature_types')
+        df = kwargs.get('df')
+        subsample = kwargs.get('subsample')
         construct_from_df = False  # whether or not we are constructing new dataset object from scratch based on provided DataFrame.
         # if df is None and file_path is None: # Cannot be used currently!
         #     raise ValueError("Must specify either named argument 'file_path' or 'df' in order to construct tabular Dataset")

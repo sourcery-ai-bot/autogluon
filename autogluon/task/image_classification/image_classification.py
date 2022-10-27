@@ -52,10 +52,9 @@ class ImageClassification(BaseTask):
         Dataset object that can be passed to `task.fit()`, which is actually an :class:`autogluon.space.AutoGluonObject`.
         To interact with such an object yourself, you must first call `Dataset.init()` to instantiate the object in Python.
         """
-        if name is None:
-            if path is None:
-                raise ValueError("Either `path` or `name` must be present in Dataset(). "
-                                 "If `name` is provided, it will override the rest of the arguments.")
+        if name is None and path is None:
+            raise ValueError("Either `path` or `name` must be present in Dataset(). "
+                             "If `name` is provided, it will override the rest of the arguments.")
         return get_dataset(path=path, train=train, name=name,
                            input_size=input_size, crop_ratio=crop_ratio,
                            *args, **kwargs)
@@ -244,7 +243,7 @@ class ImageClassification(BaseTask):
             whether to use group norm.
         """
         assert search_strategy not in {'bayesopt', 'bayesopt_hyperband'}, \
-            "search_strategy == 'bayesopt' or 'bayesopt_hyperband' not yet supported"
+                "search_strategy == 'bayesopt' or 'bayesopt_hyperband' not yet supported"
         checkpoint = os.path.join(output_directory, 'exp1.ag')
         if auto_search:
             # The strategies can be injected here, for example: automatic suggest some hps
@@ -259,7 +258,7 @@ class ImageClassification(BaseTask):
         if num_trials is None and time_limits is None:
             num_trials = 2
 
-        final_fit_epochs = final_fit_epochs if final_fit_epochs else epochs
+        final_fit_epochs = final_fit_epochs or epochs
         train_image_classification.register_args(
             dataset=dataset,
             net=net,
@@ -287,7 +286,7 @@ class ImageClassification(BaseTask):
                 scheduler_options = {'grace_period': grace_period}
             else:
                 assert 'grace_period' not in scheduler_options, \
-                    "grace_period appears both in scheduler_options and as direct argument"
+                        "grace_period appears both in scheduler_options and as direct argument"
                 scheduler_options = copy.copy(scheduler_options)
                 scheduler_options['grace_period'] = grace_period
             logger.warning(
@@ -322,7 +321,7 @@ class ImageClassification(BaseTask):
             models = [model]
             scheduler = create_scheduler(
                 train_image_classification, search_strategy, scheduler_options)
-            for i in range(1, ensemble):
+            for _ in range(1, ensemble):
                 resultsi = scheduler.run_with_config(results['best_config'])
                 kwargs = {
                     'num_classes': resultsi['num_classes'], 'ctx': mx.cpu(0)}

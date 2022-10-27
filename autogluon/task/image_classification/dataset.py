@@ -43,59 +43,66 @@ class _TransformFirstClosure(object):
         self._fn = fn
 
     def __call__(self, x, *args):
-        if args:
-            return (self._fn(x),) + args
-        return self._fn(x)
+        return (self._fn(x),) + args if args else self._fn(x)
 
 
 def generate_transform(train, resize, _is_osx, input_size, jitter_param):
     if _is_osx:
         # using PIL to load image (slow)
-        if train:
-            transform = Compose(
+        return (
+            Compose(
                 [
                     RandomResizedCrop(input_size),
                     RandomHorizontalFlip(),
                     ColorJitter(0.4, 0.4, 0.4),
                     ToTensor(),
-                    transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+                    transforms.Normalize(
+                        [0.485, 0.456, 0.406], [0.229, 0.224, 0.225]
+                    ),
                 ]
             )
-        else:
-            transform = Compose(
+            if train
+            else Compose(
                 [
                     Resize(resize),
                     CenterCrop(input_size),
                     ToTensor(),
-                    transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
-                ]
-            )
-    else:
-        if train:
-            transform = transforms.Compose(
-                [
-                    transforms.RandomResizedCrop(input_size),
-                    transforms.RandomFlipLeftRight(),
-                    transforms.RandomColorJitter(
-                        brightness=jitter_param,
-                        contrast=jitter_param,
-                        saturation=jitter_param
+                    transforms.Normalize(
+                        [0.485, 0.456, 0.406], [0.229, 0.224, 0.225]
                     ),
-                    transforms.RandomLighting(0.1),
-                    transforms.ToTensor(),
-                    transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
                 ]
             )
-        else:
-            transform = transforms.Compose(
-                [
-                    transforms.Resize(resize),
-                    transforms.CenterCrop(input_size),
-                    transforms.ToTensor(),
-                    transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
-                ]
-            )
-    return transform
+        )
+
+    elif train:
+        return transforms.Compose(
+            [
+                transforms.RandomResizedCrop(input_size),
+                transforms.RandomFlipLeftRight(),
+                transforms.RandomColorJitter(
+                    brightness=jitter_param,
+                    contrast=jitter_param,
+                    saturation=jitter_param,
+                ),
+                transforms.RandomLighting(0.1),
+                transforms.ToTensor(),
+                transforms.Normalize(
+                    [0.485, 0.456, 0.406], [0.229, 0.224, 0.225]
+                ),
+            ]
+        )
+
+    else:
+        return transforms.Compose(
+            [
+                transforms.Resize(resize),
+                transforms.CenterCrop(input_size),
+                transforms.ToTensor(),
+                transforms.Normalize(
+                    [0.485, 0.456, 0.406], [0.229, 0.224, 0.225]
+                ),
+            ]
+        )
 
 
 @func()
@@ -282,15 +289,16 @@ class RecordDataset:
         flag = 0 if gray_scale else 1
         # retrieve number of classes without decoding images
         td = RecordFileDataset(filename)
-        s = set([recordio.unpack(td.__getitem__(i))[0].label[0] for i in range(len(td))])
+        s = {recordio.unpack(td.__getitem__(i))[0].label[0] for i in range(len(td))}
         self._num_classes = len(s)
         if not classes:
             self._classes = [str(i) for i in range(self._num_classes)]
-        else:
-            if len(self._num_classes) != len(classes):
-                warnings.warn('Provided class names do not match data, expected "num_class" is {} '
-                              'vs. provided: {}'.format(self._num_classes, len(classes)))
-                self._classes = list(classes) + \
+        elif len(self._num_classes) != len(classes):
+            warnings.warn(
+                f'Provided class names do not match data, expected "num_class" is {self._num_classes} vs. provided: {len(classes)}'
+            )
+
+            self._classes = list(classes) + \
                     [str(i) for i in range(len(classes), self._num_classes)]
         self._dataset = ImageRecordDataset(filename, flag=flag)
         if transform:
@@ -337,7 +345,7 @@ class TestImageFolderDataset(MXImageFolderDataset):
         self.items = []
         path = os.path.expanduser(root)
         if not os.path.isdir(path):
-            raise ValueError('Ignoring %s, which is not a directory.' % path, stacklevel=3)
+            raise ValueError(f'Ignoring {path}, which is not a directory.', stacklevel=3)
         for filename in sorted(os.listdir(path)):
             filename = os.path.join(path, filename)
             if os.path.isfile(filename):  # add
@@ -416,7 +424,7 @@ class ImageFolderDataset(object):
     def __init__(self, root, extensions=None, transform=None, is_valid_file=None):
         root = os.path.expanduser(root)
         self.root = root
-        extensions = extensions if extensions else self.IMG_EXTENSIONS
+        extensions = extensions or self.IMG_EXTENSIONS
 
         self._transform = transform
         classes, class_to_idx = self._find_classes(self.root)
@@ -530,7 +538,7 @@ class ImageFolderDataset(object):
         return len(self.samples)
 
     def __repr__(self):
-        head = "Dataset " + self.__class__.__name__
+        head = f"Dataset {self.__class__.__name__}"
         body = [f"Number of datapoints: {self.__len__()}"]
         if self.root is not None:
             body.append(f"Root location: {self.root}")

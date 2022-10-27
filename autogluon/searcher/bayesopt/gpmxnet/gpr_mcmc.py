@@ -87,10 +87,10 @@ class GPRegressionMCMC(GaussianProcessModel):
             dim = encoding.dimension
             if lower is not None or upper is not None:
                 values = hp_values[pos:(pos + dim)]
-                if (lower is not None) and any(values < lower):
-                    return False
-                if (upper is not None) and any(values > upper):
-                    return False
+            if (lower is not None) and any(values < lower):
+                return False
+            if (upper is not None) and any(values > upper):
+                return False
             pos += dim
         return True
 
@@ -108,10 +108,11 @@ class GPRegressionMCMC(GaussianProcessModel):
 
 def _get_gp_hps(likelihood: MarginalLikelihood) -> np.ndarray:
     """Get GP hyper-parameters as numpy array for a given likelihood object."""
-    hp_values = []
-    for param_int, encoding in likelihood.param_encoding_pairs():
-        hp_values.append(
-            encode_unwrap_parameter(mx.nd, param_int, encoding).asnumpy())
+    hp_values = [
+        encode_unwrap_parameter(mx.nd, param_int, encoding).asnumpy()
+        for param_int, encoding in likelihood.param_encoding_pairs()
+    ]
+
     return np.concatenate(hp_values)
 
 

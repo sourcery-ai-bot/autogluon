@@ -59,7 +59,7 @@ class DistStatusReporter(object):
             kwargs['time_this_iter'] = report_time - self._last_report_time
         self._last_report_time = report_time
 
-        logger.debug('Reporting {}'.format(json.dumps(kwargs)))
+        logger.debug(f'Reporting {json.dumps(kwargs)}')
         try:
             self._queue.put(kwargs.copy())
         except RuntimeError:
@@ -94,8 +94,7 @@ class DistStatusReporter(object):
         raise NotImplementedError
 
     def __repr__(self):
-        reprstr = self.__class__.__name__
-        return reprstr
+        return self.__class__.__name__
 
 
 class LocalStatusReporter(object):
@@ -132,15 +131,14 @@ class LocalStatusReporter(object):
         self._last_report_time = report_time
 
         self._queue.put(kwargs.copy(), block=True)
-        logger.debug('StatusReporter reporting: {}'.format(json.dumps(kwargs)))
+        logger.debug(f'StatusReporter reporting: {json.dumps(kwargs)}')
 
         self._continue_semaphore.acquire()
         if self._stop.value:
             raise AutoGluonEarlyStop
 
     def fetch(self, block=True):
-        kwargs = self._queue.get(block=block)
-        return kwargs
+        return self._queue.get(block=block)
 
     def move_on(self):
         self._continue_semaphore.release()
@@ -157,19 +155,18 @@ class LocalStatusReporter(object):
     def save_dict(self, **state_dict):
         """Save the serializable state_dict
         """
-        logger.debug('Saving the task dict to {}'.format(self.dict_path))
+        logger.debug(f'Saving the task dict to {self.dict_path}')
         save(state_dict, self.dict_path)
 
     def has_dict(self):
-        logger.debug('has_dict {}'.format(os.path.isfile(self.dict_path)))
+        logger.debug(f'has_dict {os.path.isfile(self.dict_path)}')
         return os.path.isfile(self.dict_path)
 
     def get_dict(self):
         return load(self.dict_path)
 
     def __repr__(self):
-        reprstr = self.__class__.__name__
-        return reprstr
+        return self.__class__.__name__
 
 
 class Communicator(threading.Thread):
@@ -222,14 +219,13 @@ class Communicator(threading.Thread):
         return communicator
 
     def __repr__(self):
-        reprstr = self.__class__.__name__
-        return reprstr
+        return self.__class__.__name__
 
 
 class DistSemaphore(object):
     def __init__(self, value, remote=None):
         self._queue = Queue(client=remote)
-        for i in range(value):
+        for _ in range(value):
             self._queue.put(1)
 
     def acquire(self):
@@ -242,5 +238,4 @@ class DistSemaphore(object):
         self._queue.put(1)
 
     def __repr__(self):
-        reprstr = self.__class__.__name__
-        return reprstr
+        return self.__class__.__name__

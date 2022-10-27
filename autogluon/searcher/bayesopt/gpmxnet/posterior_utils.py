@@ -13,10 +13,7 @@ Tensor = Union[mx.nd.NDArray, mx.sym.Symbol]
 
 
 def mxnet_F(x: Tensor):
-    if isinstance(x, mx.nd.NDArray):
-        return mx.nd
-    else:
-        return mx.sym
+    return mx.nd if isinstance(x, mx.nd.NDArray) else mx.sym
 
 
 def mxnet_is_ndarray(F):

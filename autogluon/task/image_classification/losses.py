@@ -31,6 +31,5 @@ def get_loss_instance(name, **kwargs):
         err_str = '"%s" is not among the following loss list:\n\t' % (name)
         err_str += '%s' % ('\n\t'.join(sorted(losses.keys())))
         raise ValueError(err_str)
-    loss = losses[name]()
-    return loss
+    return losses[name]()
 

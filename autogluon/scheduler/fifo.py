@@ -150,7 +150,7 @@ class FIFOScheduler(TaskScheduler):
         search_options = kwargs.get('search_options')
         if isinstance(searcher, str):
             if search_options is None:
-                search_options = dict()
+                search_options = {}
             _search_options = search_options.copy()
             _search_options['configspace'] = train_fn.cs
             _search_options['reward_attribute'] = kwargs['reward_attr']
@@ -168,12 +168,12 @@ class FIFOScheduler(TaskScheduler):
         assert isinstance(train_fn, _autogluon_method)
         self.train_fn = train_fn
         args = kwargs.get('args')
-        self.args = args if args else train_fn.args
+        self.args = args or train_fn.args
         num_trials = kwargs.get('num_trials')
         time_out = kwargs.get('time_out')
         if num_trials is None:
             assert time_out is not None, \
-                "Need stopping criterion: Either num_trials or time_out"
+                    "Need stopping criterion: Either num_trials or time_out"
         self.num_trials = num_trials
         self.time_out = time_out
         self.max_reward = kwargs.get('max_reward')
@@ -191,7 +191,7 @@ class FIFOScheduler(TaskScheduler):
         self._reward_attr = kwargs['reward_attr']
         self._time_attr = kwargs['time_attr']
         self.visualizer = kwargs['visualizer'].lower()
-        if self.visualizer == 'tensorboard' or self.visualizer == 'mxboard':
+        if self.visualizer in ['tensorboard', 'mxboard']:
             assert checkpoint is not None, "Need checkpoint to be set"
             try_import_mxboard()
             from mxboard import SummaryWriter
@@ -215,12 +215,12 @@ class FIFOScheduler(TaskScheduler):
         self._training_history_callback_last_len = None
         self.training_history_callback = kwargs.get('training_history_callback')
         self.training_history_callback_delta_secs = \
-            kwargs['training_history_callback_delta_secs']
+                kwargs['training_history_callback_delta_secs']
         self._delay_get_config = kwargs['delay_get_config']
         # Resume experiment from checkpoint?
         if kwargs['resume']:
             assert checkpoint is not None, \
-                "Need checkpoint to be set if resume = True"
+                    "Need checkpoint to be set if resume = True"
             if os.path.isfile(checkpoint):
                 self.load_state_dict(load(checkpoint))
             else:
@@ -254,7 +254,7 @@ class FIFOScheduler(TaskScheduler):
             logger.info(f'Time out (secs) is {time_out}')
         for _ in tbar:
             if (time_out and time.time() - start_time >= time_out) or \
-                    (self.max_reward and self.get_best_reward() >= self.max_reward):
+                        (self.max_reward and self.get_best_reward() >= self.max_reward):
                 break
             self.schedule_next()
 
@@ -314,9 +314,8 @@ class FIFOScheduler(TaskScheduler):
     def _dict_from_task(self, task):
         if isinstance(task, Task):
             return {'TASK_ID': task.task_id, 'Config': task.args['config']}
-        else:
-            assert isinstance(task, dict)
-            return {'TASK_ID': task['TASK_ID'], 'Config': task['Config']}
+        assert isinstance(task, dict)
+        return {'TASK_ID': task['TASK_ID'], 'Config': task['Config']}
 
     def add_job(self, task, **kwargs):
         """Adding a training task to the scheduler.
@@ -420,9 +419,9 @@ class FIFOScheduler(TaskScheduler):
             if dataset_size > 0:
                 reported_result['searcher_data_size'] = dataset_size
             for k, v in self.searcher.cumulative_profile_record().items():
-                reported_result['searcher_profile_' + k] = v
+                reported_result[f'searcher_profile_{k}'] = v
             for k, v in self.searcher.model_parameters().items():
-                reported_result['searcher_params_' + k] = v
+                reported_result[f'searcher_params_{k}'] = v
             self._add_training_result(
                 task.task_id, reported_result, config=task.args['config'])
             reporter.move_on()
@@ -439,7 +438,7 @@ class FIFOScheduler(TaskScheduler):
         :return: config, extra_args
         """
         config = None
-        extra_args = dict()
+        extra_args = {}
         return config, extra_args
 
     def _elapsed_time(self):
@@ -461,7 +460,7 @@ class FIFOScheduler(TaskScheduler):
         return self.searcher.get_best_reward()
 
     def _add_training_result(self, task_id, reported_result, config=None):
-        if self.visualizer == 'mxboard' or self.visualizer == 'tensorboard':
+        if self.visualizer in ['mxboard', 'tensorboard']:
             if 'loss' in reported_result:
                 self.mxboard.add_scalar(
                     tag='loss',
@@ -553,7 +552,7 @@ class FIFOScheduler(TaskScheduler):
             destination['searcher'] = pickle.dumps(self.searcher.get_state())
             destination['training_history'] = json.dumps(self.training_history)
             destination['config_history'] = json.dumps(self.config_history)
-        if self.visualizer == 'mxboard' or self.visualizer == 'tensorboard':
+        if self.visualizer in ['mxboard', 'tensorboard']:
             destination['visualizer'] = json.dumps(self.mxboard._scalar_dict)
         return destination
 
@@ -576,6 +575,6 @@ class FIFOScheduler(TaskScheduler):
                 pickle.loads(state_dict['searcher']))
             self.training_history = json.loads(state_dict['training_history'])
             self.config_history = json.loads(state_dict['config_history'])
-        if self.visualizer == 'mxboard' or self.visualizer == 'tensorboard':
+        if self.visualizer in ['mxboard', 'tensorboard']:
             self.mxboard._scalar_dict = json.loads(state_dict['visualizer'])
         logger.debug(f'Loading Searcher State {self.searcher}')

@@ -50,9 +50,10 @@ class NumPyHeadAcquisitionFunction(AcquisitionFunction, ABC):
             # average them
             do_avg = (mean.ndim == 2 and mean.shape[1] > 1)
             if do_avg:
-                assert mean.shape[1] == current_best.size, \
-                    "mean.shape[1] = {}, current_best.size = {} (must be the same)".format(
-                        mean.shape[1], current_best.size)
+                assert (
+                    mean.shape[1] == current_best.size
+                ), f"mean.shape[1] = {mean.shape[1]}, current_best.size = {current_best.size} (must be the same)"
+
                 std = std.reshape((-1, 1))
             fvals = self._compute_head(mean, std, current_best).hvals
             if do_avg:
@@ -63,7 +64,7 @@ class NumPyHeadAcquisitionFunction(AcquisitionFunction, ABC):
     def compute_acq_with_gradients(
             self, x: np.ndarray,
             model: Optional[SurrogateModel] = None) -> \
-            Tuple[np.ndarray, np.ndarray]:
+                Tuple[np.ndarray, np.ndarray]:
         if model is None:
             model = self.model
         dtype_nd = model.dtype_for_nd()

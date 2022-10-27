@@ -129,27 +129,32 @@ class GPMXNetPendingCandidateStateTransformer(PendingCandidateStateTransformer):
         pos = self._find_candidate(
             candidate, self._state.candidate_evaluations)
         if pos != -1:
-            self._model = None  # Invalidate
             self._state.candidate_evaluations.pop(pos)
             if self._debug_log is not None:
-                deb_msg = "[GPMXNetAsyncPendingCandidateStateTransformer.drop_candidate]\n"
-                deb_msg += ("- len(candidate_evaluations) afterwards = {}".format(
-                    len(self.state.candidate_evaluations)))
+                deb_msg = (
+                    "[GPMXNetAsyncPendingCandidateStateTransformer.drop_candidate]\n"
+                    + f"- len(candidate_evaluations) afterwards = {len(self.state.candidate_evaluations)}"
+                )
+
                 logger.info(deb_msg)
         else:
             # Try pending
             pos = self._find_candidate(
                 candidate, self._state.pending_evaluations)
-            assert pos != -1, \
-                "Candidate {} not registered (neither labeled, nor pending)".format(
-                    candidate)
-            self._model = None  # Invalidate
+            assert (
+                pos != -1
+            ), f"Candidate {candidate} not registered (neither labeled, nor pending)"
+
             self._state.pending_evaluations.pop(pos)
             if self._debug_log is not None:
-                deb_msg = "[GPMXNetAsyncPendingCandidateStateTransformer.drop_candidate]\n"
-                deb_msg += ("- len(pending_evaluations) afterwards = {}\n".format(
-                    len(self.state.pending_evaluations)))
+                deb_msg = (
+                    "[GPMXNetAsyncPendingCandidateStateTransformer.drop_candidate]\n"
+                    + f"- len(pending_evaluations) afterwards = {len(self.state.pending_evaluations)}\n"
+                )
+
                 logger.info(deb_msg)
+
+        self._model = None  # Invalidate
 
     def label_candidate(self, data: CandidateEvaluation):
         """
@@ -178,9 +183,11 @@ class GPMXNetPendingCandidateStateTransformer(PendingCandidateStateTransformer):
             filter_pred, self._state.pending_evaluations))
         if len(new_pending_evaluations) != len(self._state.pending_evaluations):
             if self._debug_log is not None:
-                deb_msg = "[GPMXNetAsyncPendingCandidateStateTransformer.filter_pending_evaluations]\n"
-                deb_msg += ("- from len {} to {}".format(
-                    len(self.state.pending_evaluations), len(new_pending_evaluations)))
+                deb_msg = (
+                    "[GPMXNetAsyncPendingCandidateStateTransformer.filter_pending_evaluations]\n"
+                    + f"- from len {len(self.state.pending_evaluations)} to {len(new_pending_evaluations)}"
+                )
+
                 logger.info(deb_msg)
             self._model = None  # Invalidate
             del self._state.pending_evaluations[:]
@@ -194,14 +201,15 @@ class GPMXNetPendingCandidateStateTransformer(PendingCandidateStateTransformer):
         if skip_optimization is None:
             skip_optimization = self.skip_optimization(self._state)
         fit_parameters = not skip_optimization
-        if fit_parameters and self._candidate_evaluations:
-            # Did the labeled data really change since the last recent refit?
-            # If not, skip the refitting
-            if self._state.candidate_evaluations == self._candidate_evaluations:
-                fit_parameters = False
-                logger.warning(
-                    "Skipping the refitting of GP hyperparameters, since the "
-                    "labeled data did not change since the last recent fit")
+        if (
+            fit_parameters
+            and self._candidate_evaluations
+            and self._state.candidate_evaluations == self._candidate_evaluations
+        ):
+            fit_parameters = False
+            logger.warning(
+                "Skipping the refitting of GP hyperparameters, since the "
+                "labeled data did not change since the last recent fit")
         self._model = GPMXNetModel(
             state=self._state,
             active_metric=args.active_metric,

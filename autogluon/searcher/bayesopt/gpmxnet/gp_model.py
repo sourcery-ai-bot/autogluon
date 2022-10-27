@@ -65,11 +65,12 @@ class GaussianProcessModel(ABC):
 
     def _assert_check_xtest(self, X_test):
         assert self.states is not None, \
-            "Posterior state does not exist (run 'fit')"
+                "Posterior state does not exist (run 'fit')"
         X_test = self._check_and_format_input(X_test)
-        assert X_test.shape[1] == self.states[0].num_features, \
-            "X_test and X_train should have the same number of columns (received {}, expected {})".format(
-                X_test.shape[1], self.states[0].num_features)
+        assert (
+            X_test.shape[1] == self.states[0].num_features
+        ), f"X_test and X_train should have the same number of columns (received {X_test.shape[1]}, expected {self.states[0].num_features})"
+
         return X_test
 
     def multiple_targets(self):

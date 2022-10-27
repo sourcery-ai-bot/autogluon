@@ -24,5 +24,4 @@ def get_metric_instance(name, **kwargs):
         err_str = '"%s" is not among the following metric list:\n\t' % (name)
         err_str += '%s' % ('\n\t'.join(sorted(metrics.keys())))
         raise ValueError(err_str)
-    metric = metrics[name]()
-    return metric
+    return metrics[name]()

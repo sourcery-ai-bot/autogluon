@@ -11,12 +11,11 @@ __all__ = ['get_network', 'LMClassifier', 'BERTClassifier', 'RoBERTaClassifier']
 def get_network(bert, class_labels, use_roberta=False):
     do_regression = not class_labels
     num_classes = 1 if do_regression else len(class_labels)
-    # reuse the BERTClassifier class with num_classes=1 for regression
-    if use_roberta:
-        model = RoBERTaClassifier(bert, dropout=0.0, num_classes=num_classes)
-    else:
-        model = BERTClassifier(bert, dropout=0.1, num_classes=num_classes)
-    return model
+    return (
+        RoBERTaClassifier(bert, dropout=0.0, num_classes=num_classes)
+        if use_roberta
+        else BERTClassifier(bert, dropout=0.1, num_classes=num_classes)
+    )
 
 
 class LMClassifier(gluon.Block):
@@ -39,8 +38,7 @@ class LMClassifier(gluon.Block):
         masked_encoded = mx.ndarray.SequenceMask(encoded, sequence_length=valid_length, use_sequence_length=True)
         self.pool_out = mx.ndarray.broadcast_div(mx.ndarray.sum(masked_encoded, axis=0),
                                              mx.ndarray.expand_dims(valid_length, axis=1))
-        out = self.classifier(self.pool_out)
-        return out
+        return self.classifier(self.pool_out)
 
 
 class BERTClassifier(gluon.Block):

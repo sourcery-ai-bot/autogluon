@@ -46,10 +46,12 @@ class AutoMLFeatureGenerator(AbstractFeatureGenerator):
             if self.enable_nlp_features:
                 self.feature_transformations['text_ngram'] += text_features
 
-        if 'datetime' in self.feature_type_family:
+        if (
+            'datetime' in self.feature_type_family
+            and self.enable_datetime_features
+        ):
             datetime_features = self.feature_type_family['datetime']
-            if self.enable_datetime_features:
-                self.feature_transformations['datetime'] += datetime_features
+            self.feature_transformations['datetime'] += datetime_features
 
         if self.enable_raw_features:
             for type_family in self.feature_type_family:
@@ -111,7 +113,15 @@ class AutoMLFeatureGenerator(AbstractFeatureGenerator):
                 for nlp_feature in features_nlp_current:
                     # TODO: Preprocess text?
                     if nlp_feature == '__nlp__':
-                        text_list = list(set(['. '.join(row) for row in X[self.feature_transformations['text_ngram']].values]))
+                        text_list = list(
+                            {
+                                '. '.join(row)
+                                for row in X[
+                                    self.feature_transformations['text_ngram']
+                                ].values
+                            }
+                        )
+
                     else:
                         text_list = list(X[nlp_feature].drop_duplicates().values)
                     vectorizer_raw = copy.deepcopy(self.vectorizer_default_raw)
@@ -193,10 +203,12 @@ class AutoMLFeatureGenerator(AbstractFeatureGenerator):
                 max_memory_percentage = 0.15  # TODO: Finetune this, or find a better metric
                 predicted_rss = mem_rss + predicted_ngrams_memory_usage_bytes
                 predicted_percentage = predicted_rss / mem_avail
-                if downsample_ratio is None:
-                    if predicted_percentage > max_memory_percentage:
-                        downsample_ratio = max_memory_percentage / predicted_percentage
-                        logger.warning('Warning: Due to memory constraints, ngram feature count is being reduced. Allocate more memory to maximize model quality.')
+                if (
+                    downsample_ratio is None
+                    and predicted_percentage > max_memory_percentage
+                ):
+                    downsample_ratio = max_memory_percentage / predicted_percentage
+                    logger.warning('Warning: Due to memory constraints, ngram feature count is being reduced. Allocate more memory to maximize model quality.')
 
                 if downsample_ratio is not None:
                     if (downsample_ratio >= 1) or (downsample_ratio <= 0):

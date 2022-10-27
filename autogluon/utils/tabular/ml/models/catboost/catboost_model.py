@@ -37,8 +37,7 @@ class CatboostModel(AbstractModel):
 
     def preprocess(self, X):
         X = super().preprocess(X)
-        categoricals = list(X.select_dtypes(include='category').columns)
-        if categoricals:
+        if categoricals := list(X.select_dtypes(include='category').columns):
             X = X.copy()
             for category in categoricals:
                 current_categories = X[category].cat.categories
@@ -70,10 +69,7 @@ class CatboostModel(AbstractModel):
         num_rows_train = len(X_train)
         num_cols_train = len(X_train.columns)
         if self.problem_type == MULTICLASS:
-            if self.num_classes is not None:
-                num_classes = self.num_classes
-            else:
-                num_classes = 10  # Guess if not given, can do better by looking at y_train
+            num_classes = self.num_classes if self.num_classes is not None else 10
         elif self.problem_type == SOFTCLASS:  # TODO: delete this elif if it's unnecessary.
             num_classes = y_train.shape[1]
             self.num_classes = num_classes
@@ -101,10 +97,7 @@ class CatboostModel(AbstractModel):
             X_val = self.preprocess(X_val)
             X_val = Pool(data=X_val, label=y_val, cat_features=cat_features)
             eval_set = X_val
-            if num_rows_train <= 10000:
-                modifier = 1
-            else:
-                modifier = 10000/num_rows_train
+            modifier = 1 if num_rows_train <= 10000 else 10000/num_rows_train
             early_stopping_rounds = max(round(modifier*150), 10)
             num_sample_iter_max = max(round(modifier*50), 2)
         else:
@@ -117,22 +110,23 @@ class CatboostModel(AbstractModel):
             if invalid in self.params:
                 self.params.pop(invalid)
         train_dir = None
-        if 'allow_writing_files' in self.params and self.params['allow_writing_files']:
-            if 'train_dir' not in self.params:
-                try:
-                    # TODO: What if path is in S3?
-                    os.makedirs(os.path.dirname(self.path), exist_ok=True)
-                except:
-                    pass
-                else:
-                    train_dir = self.path + 'catboost_info'
+        if (
+            'allow_writing_files' in self.params
+            and self.params['allow_writing_files']
+            and 'train_dir' not in self.params
+        ):
+            try:
+                # TODO: What if path is in S3?
+                os.makedirs(os.path.dirname(self.path), exist_ok=True)
+            except:
+                pass
+            else:
+                train_dir = f'{self.path}catboost_info'
         logger.log(15, f'\tCatboost model hyperparameters: {self.params}')
 
         # TODO: Add more control over these params (specifically early_stopping_rounds)
         verbosity = kwargs.get('verbosity', 2)
-        if verbosity <= 1:
-            verbose = False
-        elif verbosity == 2:
+        if verbosity <= 1 or verbosity == 2:
             verbose = False
         elif verbosity == 3:
             verbose = 20
@@ -237,17 +231,17 @@ class CatboostModel(AbstractModel):
 
             if init_model is not None:
                 final_model_best_score = self.model.get_best_score()['validation'][metric_name]
-                if self.stopping_metric._optimum > final_model_best_score:
-                    if final_model_best_score > init_model_best_score:
-                        best_iteration = init_model_tree_count + self.model.get_best_iteration()
-                    else:
-                        best_iteration = init_model_best_iteration
+                if (
+                    self.stopping_metric._optimum
+                    > final_model_best_score
+                    > init_model_best_score
+                    or self.stopping_metric._optimum
+                    <= final_model_best_score
+                    < init_model_best_score
+                ):
+                    best_iteration = init_model_tree_count + self.model.get_best_iteration()
                 else:
-                    if final_model_best_score < init_model_best_score:
-                        best_iteration = init_model_tree_count + self.model.get_best_iteration()
-                    else:
-                        best_iteration = init_model_best_iteration
-
+                    best_iteration = init_model_best_iteration
                 self.model.shrink(ntree_start=0, ntree_end=best_iteration+1)
 
         self.params_trained['iterations'] = self.model.tree_count_
@@ -269,5 +263,4 @@ class CatboostModel(AbstractModel):
         importance_df = self.model.get_feature_importance(prettified=True)
         importance_df['Importances'] = importance_df['Importances'] / 100
         importance_series = importance_df.set_index('Feature Id')['Importances']
-        importance_dict = importance_series.to_dict()
-        return importance_dict
+        return importance_series.to_dict()

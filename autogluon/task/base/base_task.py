@@ -127,12 +127,12 @@ def compile_scheduler_options(
 
     """
     if scheduler_options is None:
-        scheduler_options = dict()
+        scheduler_options = {}
     else:
         assert isinstance(scheduler_options, dict)
     assert isinstance(search_strategy, str)
     if search_options is None:
-        search_options = dict()
+        search_options = {}
     if visualizer is None:
         visualizer = 'none'
     if time_attr is None:

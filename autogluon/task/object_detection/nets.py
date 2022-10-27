@@ -37,7 +37,7 @@ def get_built_in_network(meta_arch, name, *args, **kwargs):
                                               transfer=transfer, **kwargs)
             net.initialize(ctx=ctx, force_reinit=True)
         else:
-            raise NotImplementedError('%s not implemented.' % meta_arch)
+            raise NotImplementedError(f'{meta_arch} not implemented.')
         return net
 
     name = name.lower()

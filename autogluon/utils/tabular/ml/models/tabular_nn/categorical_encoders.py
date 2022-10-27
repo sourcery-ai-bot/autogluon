@@ -22,18 +22,15 @@ __all__ = [
 def _encode_numpy(values, uniques=None, encode=False, check_unknown=True):
     # only used in _encode below, see docstring there for details
     if uniques is None:
-        if encode:
-            uniques, encoded = np.unique(values, return_inverse=True)
-            return uniques, encoded
-        else:
+        if not encode:
             # unique sorts
             return np.unique(values)
+        uniques, encoded = np.unique(values, return_inverse=True)
+        return uniques, encoded
     if encode:
         if check_unknown:
-            diff = _encode_check_unknown(values, uniques)
-            if diff:
-                raise ValueError("y contains previously unseen labels: %s"
-                                 % str(diff))
+            if diff := _encode_check_unknown(values, uniques):
+                raise ValueError(f"y contains previously unseen labels: {str(diff)}")
         encoded = np.searchsorted(uniques, values)
         return uniques, encoded
     else:
@@ -45,16 +42,14 @@ def _encode_python(values, uniques=None, encode=False):
     if uniques is None:
         uniques = sorted(set(values))
         uniques = np.array(uniques, dtype=values.dtype)
-    if encode:
-        table = {val: i for i, val in enumerate(uniques)}
-        try:
-            encoded = np.array([table[v] for v in values])
-        except KeyError as e:
-            raise ValueError("y contains previously unseen labels: %s"
-                             % str(e))
-        return uniques, encoded
-    else:
+    if not encode:
         return uniques
+    table = {val: i for i, val in enumerate(uniques)}
+    try:
+        encoded = np.array([table[v] for v in values])
+    except KeyError as e:
+        raise ValueError(f"y contains previously unseen labels: {str(e)}")
+    return uniques, encoded
 
 
 def _encode(values, uniques=None, encode=False, check_unknown=True):
@@ -89,15 +84,14 @@ def _encode(values, uniques=None, encode=False, check_unknown=True):
     (uniques, encoded)
         If ``encode=True``.
     """
-    if values.dtype == object:
-        try:
-            res = _encode_python(values, uniques, encode)
-        except TypeError:
-            raise TypeError("argument must be a string or number")
-        return res
-    else:
+    if values.dtype != object:
         return _encode_numpy(values, uniques, encode,
                              check_unknown=check_unknown)
+    try:
+        res = _encode_python(values, uniques, encode)
+    except TypeError:
+        raise TypeError("argument must be a string or number")
+    return res
 
 
 def _encode_check_unknown(values, uniques, return_mask=False):
@@ -125,25 +119,26 @@ def _encode_check_unknown(values, uniques, return_mask=False):
     if values.dtype == object:
         uniques_set = set(uniques)
         diff = list(set(values) - uniques_set)
-        if return_mask:
-            if diff:
-                valid_mask = np.array([val in uniques_set for val in values])
-            else:
-                valid_mask = np.ones(len(values), dtype=bool)
-            return diff, valid_mask
-        else:
+        if not return_mask:
             return diff
+        valid_mask = (
+            np.array([val in uniques_set for val in values])
+            if diff
+            else np.ones(len(values), dtype=bool)
+        )
+
     else:
         unique_values = np.unique(values)
         diff = list(np.setdiff1d(unique_values, uniques, assume_unique=True))
-        if return_mask:
-            if diff:
-                valid_mask = np.in1d(values, uniques)
-            else:
-                valid_mask = np.ones(len(values), dtype=bool)
-            return diff, valid_mask
-        else:
+        if not return_mask:
             return diff
+        valid_mask = (
+            np.in1d(values, uniques)
+            if diff
+            else np.ones(len(values), dtype=bool)
+        )
+
+    return diff, valid_mask
 
 
 class _BaseEncoder(BaseEstimator, TransformerMixin):
@@ -177,61 +172,55 @@ class _BaseEncoder(BaseEstimator, TransformerMixin):
             # pandas dataframe, do validation later column by column, in order
             # to keep the dtype information to be used in the encoder.
             needs_validation = True
-        
+
         n_samples, n_features = X.shape
         X_columns = []
-        
+
         for i in range(n_features):
             Xi = self._get_feature(X, feature_idx=i)
             Xi = check_array(Xi, ensure_2d=False, dtype=None,
                              force_all_finite=needs_validation)
             X_columns.append(Xi)
-        
+
         return X_columns, n_samples, n_features
     
     def _get_feature(self, X, feature_idx):
-        if hasattr(X, 'iloc'):
-            # pandas dataframes
-            return X.iloc[:, feature_idx]
-        # numpy arrays, sparse arrays
-        return X[:, feature_idx]
+        return X.iloc[:, feature_idx] if hasattr(X, 'iloc') else X[:, feature_idx]
     
     def _fit(self, X, handle_unknown='error'):
         X_list, n_samples, n_features = self._check_X(X)
-        
-        if self.categories != 'auto':
-            if len(self.categories) != n_features:
-                raise ValueError("Shape mismatch: if categories is an array,"
-                                 " it has to be of shape (n_features,).")
-        
-        if self.max_levels is not None:
-            if (not isinstance(self.max_levels, Integral) or
-                    self.max_levels <= 0):
-                raise ValueError("max_levels must be None or a strictly "
-                                 "positive int, got {}.".format(
-                                     self.max_levels))
-        
+
+        if self.categories != 'auto' and len(self.categories) != n_features:
+            raise ValueError("Shape mismatch: if categories is an array,"
+                             " it has to be of shape (n_features,).")
+
+        if self.max_levels is not None and (
+            (not isinstance(self.max_levels, Integral) or self.max_levels <= 0)
+        ):
+            raise ValueError(
+                f"max_levels must be None or a strictly positive int, got {self.max_levels}."
+            )
+
+
         self.categories_ = []
         self.infrequent_indices_ = []
-        
+
         for i in range(n_features):
             Xi = X_list[i]
             if self.categories == 'auto':
                 cats = _encode(Xi)
             else:
                 cats = np.array(self.categories[i], dtype=Xi.dtype)
-                if Xi.dtype != object:
-                    if not np.all(np.sort(cats) == cats):
-                        raise ValueError("Unsorted categories are not "
-                                         "supported for numerical categories")
+                if Xi.dtype != object and not np.all(np.sort(cats) == cats):
+                    raise ValueError("Unsorted categories are not "
+                                     "supported for numerical categories")
                 if handle_unknown == 'error':
-                    diff = _encode_check_unknown(Xi, cats)
-                    if diff:
+                    if diff := _encode_check_unknown(Xi, cats):
                         msg = ("Found unknown categories {0} in column {1}"
                                " during fit".format(diff, i))
                         raise ValueError(msg)
             self.categories_.append(cats)
-            
+
             if self.max_levels is not None:
                 infrequent_indices = self._find_infrequent_category_indices(Xi)
             else:
@@ -246,23 +235,21 @@ class _BaseEncoder(BaseEstimator, TransformerMixin):
     
     def _transform(self, X, handle_unknown='error'):
         X_list, n_samples, n_features = self._check_X(X)
-        
+
         X_int = np.zeros((n_samples, n_features), dtype=np.int)
         X_mask = np.ones((n_samples, n_features), dtype=np.bool)
-        
+
         if n_features != len(self.categories_):
             raise ValueError(
-                "The number of features in X is different to the number of "
-                "features of the fitted data. The fitted data had {} features "
-                "and the X has {} features."
-                .format(len(self.categories_,), n_features)
+                f"The number of features in X is different to the number of features of the fitted data. The fitted data had {len(self.categories_)} features and the X has {n_features} features."
             )
-        
+
+
         for i in range(n_features):
             Xi = X_list[i]
             diff, valid_mask = _encode_check_unknown(Xi, self.categories_[i],
                                                      return_mask=True)
-            
+
             if not np.all(valid_mask):
                 if handle_unknown == 'error':
                     msg = ("Found unknown categories {0} in column {1}"
@@ -280,14 +267,14 @@ class _BaseEncoder(BaseEstimator, TransformerMixin):
                         Xi = Xi.astype(self.categories_[i].dtype)
                     else:
                         Xi = Xi.copy()
-                    
+
                     Xi[~valid_mask] = self.categories_[i][0]
             # We use check_unknown=False, since _encode_check_unknown was
             # already called above.
             _, encoded = _encode(Xi, self.categories_[i], encode=True,
                                  check_unknown=False)
             X_int[:, i] = encoded
-        
+
         # We need to take care of infrequent categories here. We want all the
         # infrequent categories to end up in a specific column, after all the
         # frequent ones. Let's say we have 4 categories with 2 infrequent
@@ -306,11 +293,11 @@ class _BaseEncoder(BaseEstimator, TransformerMixin):
                 for ordinal_cat in self.infrequent_indices_[feature_idx]:
                     mapping[ordinal_cat] = huge_int
                 _, mapping = _encode_numpy(mapping, encode=True)
-                
+
                 # update X_int and save mapping for later (for dropping logic)
                 X_int[:, feature_idx] = mapping[X_int[:, feature_idx]]
                 self._infrequent_mappings[feature_idx] = mapping
-        
+
         return X_int, X_mask
     
     def _more_tags(self):
@@ -437,12 +424,19 @@ class OneHotMergeRaresHandleUnknownEncoder(_BaseEncoder):
             missing_drops = [(i, val) for i, val in enumerate(self.drop)
                              if val not in self.categories_[i]]
             if any(missing_drops):
-                msg = ("The following categories were supposed to be "
-                       "dropped, but were not found in the training "
-                       "data.\n{}".format(
-                           "\n".join(
-                                ["Category: {}, Feature: {}".format(c, v)
-                                    for c, v in missing_drops])))
+                msg = (
+                    "The following categories were supposed to be "
+                    "dropped, but were not found in the training "
+                    "data.\n{}".format(
+                        "\n".join(
+                            [
+                                f"Category: {c}, Feature: {v}"
+                                for c, v in missing_drops
+                            ]
+                        )
+                    )
+                )
+
                 raise ValueError(msg)
             return np.array([np.where(cat_list == val)[0][0]
                              for (val, cat_list) in
@@ -475,13 +469,9 @@ class OneHotMergeRaresHandleUnknownEncoder(_BaseEncoder):
                     zip(self.infrequent_indices_, self.drop_idx_)):
                 if drop_idx in infrequent_indices:
                     raise ValueError(
-                        "Category {} of feature {} is infrequent and thus "
-                        "cannot be dropped. Use drop='infrequent' "
-                        "instead.".format(
-                            self.categories_[feature_idx][drop_idx],
-                            feature_idx
-                        )
+                        f"Category {self.categories_[feature_idx][drop_idx]} of feature {feature_idx} is infrequent and thus cannot be dropped. Use drop='infrequent' instead."
                     )
+
         return self
     
     def fit_transform(self, X, y=None):
@@ -521,7 +511,7 @@ class OneHotMergeRaresHandleUnknownEncoder(_BaseEncoder):
         # validation of X happens in _check_X called by _transform
         X_int, X_mask = self._transform(X, handle_unknown=self.handle_unknown)
         n_samples, n_features = X_int.shape
-        
+
         # n_columns indicates, for each feature, how many columns are used in
         # X_trans. By default this corresponds to the number of categories, but
         # will differ if we drop some of them, or if there are infrequent
@@ -540,7 +530,7 @@ class OneHotMergeRaresHandleUnknownEncoder(_BaseEncoder):
                 if (isinstance(self.drop, str) and self.drop == 'infrequent'
                         and n_infrequent == 0):
                     n_columns[feature_idx] += 1  # revert decrement from above
-        
+
         if self.drop is not None:
             to_drop = self.drop_idx_.copy()
             if isinstance(self.drop, str):
@@ -561,14 +551,14 @@ class OneHotMergeRaresHandleUnknownEncoder(_BaseEncoder):
                     if self.infrequent_indices_[feature_idx].size > 0:
                         mapping = self._infrequent_mappings[feature_idx]
                         to_drop[feature_idx] = mapping[to_drop[feature_idx]]
-            
+
             # We remove all the dropped categories from mask, and decrement
             # all categories that occur after them to avoid an empty column.
             to_drop = to_drop.reshape(1, -1)
             keep_cells = (X_int != to_drop) | (to_drop == -1)
             X_mask &= keep_cells
             X_int[(X_int > to_drop) & (to_drop != -1)] -= 1
-        
+
         mask = X_mask.ravel()
         n_values = np.array([0] + n_columns)
         feature_indices = np.cumsum(n_values)
@@ -576,14 +566,11 @@ class OneHotMergeRaresHandleUnknownEncoder(_BaseEncoder):
         indptr = X_mask.sum(axis=1).cumsum()
         indptr = np.insert(indptr, 0, 0)
         data = np.ones(n_samples * n_features)[mask]
-        
+
         out = sparse.csr_matrix((data, indices, indptr),
                                 shape=(n_samples, feature_indices[-1]),
                                 dtype=self.dtype)
-        if not self.sparse:
-            return out.toarray()
-        else:
-            return out
+        return out if self.sparse else out.toarray()
     
     def inverse_transform(self, X):
         """Convert the back data to the original representation.
@@ -604,7 +591,7 @@ class OneHotMergeRaresHandleUnknownEncoder(_BaseEncoder):
         """
         check_is_fitted(self, 'categories_')
         X = check_array(X, accept_sparse='csr')
-        
+
         n_samples, _ = X.shape
         n_features = len(self.categories_)
         if self.drop is None:
@@ -613,26 +600,26 @@ class OneHotMergeRaresHandleUnknownEncoder(_BaseEncoder):
         else:
             n_transformed_features = sum(len(cats) - 1
                                          for cats in self.categories_)
-        
-        # validate shape of passed X
-        msg = ("Shape of the passed X data is not correct. Expected {0} "
-               "columns, got {1}.")
+
         if X.shape[1] != n_transformed_features:
+            # validate shape of passed X
+            msg = ("Shape of the passed X data is not correct. Expected {0} "
+                   "columns, got {1}.")
             raise ValueError(msg.format(n_transformed_features, X.shape[1]))
-        
+
         # create resulting array of appropriate dtype
         dt = np.find_common_type([cat.dtype for cat in self.categories_], [])
         X_tr = np.empty((n_samples, n_features), dtype=dt)
         j = 0
         found_unknown = {}
-        
+
         for i in range(n_features):
             if self.drop is None:
                 cats = self.categories_[i]
             else:
                 cats = np.delete(self.categories_[i], self.drop_idx_[i])
             n_categories = len(cats)
-        
+
             # Only happens if there was a column with a unique
             # category. In this case we just fill the column with this
             # unique category value.
@@ -655,18 +642,18 @@ class OneHotMergeRaresHandleUnknownEncoder(_BaseEncoder):
                 dropped = np.asarray(sub.sum(axis=1) == 0).flatten()
                 if dropped.any():
                     X_tr[dropped, i] = self.categories_[i][self.drop_idx_[i]]
-            
+
             j += n_categories
-        
+
         # if ignored are found: potentially need to upcast result to
         # insert None values
         if found_unknown:
             if X_tr.dtype != object:
                 X_tr = X_tr.astype(object)
-        
+
             for idx, mask in found_unknown.items():
                 X_tr[mask, idx] = None
-        
+
         return X_tr
     
     def get_feature_names(self, input_features=None):
@@ -689,18 +676,17 @@ class OneHotMergeRaresHandleUnknownEncoder(_BaseEncoder):
             input_features = ['x%d' % i for i in range(len(cats))]
         elif len(input_features) != len(self.categories_):
             raise ValueError(
-                "input_features should have length equal to number of "
-                "features ({}), got {}".format(len(self.categories_),
-                                               len(input_features)))
-        
+                f"input_features should have length equal to number of features ({len(self.categories_)}), got {len(input_features)}"
+            )
+
+
         feature_names = []
         for i in range(len(cats)):
-            names = [
-                input_features[i] + '_' + str(t) for t in cats[i]]
+            names = [f'{input_features[i]}_{str(t)}' for t in cats[i]]
             if self.drop is not None:
                 names.pop(self.drop_idx_[i])
             feature_names.extend(names)
-        
+
         return np.array(feature_names, dtype=object)
 
 
@@ -811,25 +797,25 @@ class OrdinalMergeRaresHandleUnknownEncoder(_BaseEncoder):
         """
         check_is_fitted(self, 'categories_')
         X = check_array(X, accept_sparse='csr')
-        
+
         n_samples, _ = X.shape
         n_features = len(self.categories_)
-        
-        # validate shape of passed X
-        msg = ("Shape of the passed X data is not correct. Expected {0} "
-               "columns, got {1}.")
+
         if X.shape[1] != n_features:
+            # validate shape of passed X
+            msg = ("Shape of the passed X data is not correct. Expected {0} "
+                   "columns, got {1}.")
             raise ValueError(msg.format(n_features, X.shape[1]))
-        
+
         # create resulting array of appropriate dtype
         dt = np.find_common_type([cat.dtype for cat in self.categories_], [])
         X_tr = np.empty((n_samples, n_features), dtype=dt)
-        
+
         for i in range(n_features):
             possible_categories = np.append(self.categories_[i], None)
             labels = X[:, i].astype('int64', copy=False)
             X_tr[:, i] = self.categories_[i][labels]
-        
+
         return X_tr
 
 

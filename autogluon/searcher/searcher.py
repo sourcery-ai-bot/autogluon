@@ -96,8 +96,10 @@ class BaseSearcher(object):
 
         """
         reward = kwargs.get(self._reward_attribute)
-        assert reward is not None, \
-            "Missing reward attribute '{}'".format(self._reward_attribute)
+        assert (
+            reward is not None
+        ), f"Missing reward attribute '{self._reward_attribute}'"
+
         with self.LOCK:
             # _results is updated if reward is larger than the previous entry.
             # This is the correct behaviour for multi-fidelity schedulers,
@@ -149,14 +151,14 @@ class BaseSearcher(object):
         profiling information over get_config calls, the corresponding dict
         is returned here.
         """
-        return dict()
+        return {}
 
     def model_parameters(self):
         """
         :return: Dictionary with current model (hyper)parameter values if
             this is supported; otherwise empty
         """
-        return dict()
+        return {}
 
     def get_best_reward(self):
         """Calculates the reward (i.e. validation performance) produced by training under the best configuration identified so far.
@@ -183,17 +185,16 @@ class BaseSearcher(object):
                 config_pkl = max(self._results, key=self._results.get)
                 return pickle.loads(config_pkl)
             else:
-                return dict()
+                return {}
 
     def get_best_config_reward(self):
         """Returns the best configuration found so far, as well as the reward associated with this best config.
         """
         with self.LOCK:
-            if self._results:
-                config_pkl = max(self._results, key=self._results.get)
-                return pickle.loads(config_pkl), self._results[config_pkl]
-            else:
-                return dict(), self._reward_while_pending()
+            if not self._results:
+                return {}, self._reward_while_pending()
+            config_pkl = max(self._results, key=self._results.get)
+            return pickle.loads(config_pkl), self._results[config_pkl]
 
     def get_state(self):
         """
@@ -238,15 +239,14 @@ class BaseSearcher(object):
 
     def __repr__(self):
         config, reward = self.get_best_config_reward()
-        reprstr = (
-                f'{self.__class__.__name__}(' +
-                f'\nConfigSpace: {self.configspace}.' +
-                f'\nNumber of Trials: {len(self._results)}.' +
-                f'\nBest Config: {config}' +
-                f'\nBest Reward: {reward}' +
-                f')'
+        return (
+            f'{self.__class__.__name__}('
+            + f'\nConfigSpace: {self.configspace}.'
+            + f'\nNumber of Trials: {len(self._results)}.'
+            + f'\nBest Config: {config}'
+            + f'\nBest Reward: {reward}'
+            + ')'
         )
-        return reprstr
 
 
 class RandomSearcher(BaseSearcher):
@@ -298,10 +298,7 @@ class RandomSearcher(BaseSearcher):
         self._debug_log = kwargs.get('debug_log')
         if self._debug_log is not None:
             if isinstance(self._debug_log, bool):
-                if self._debug_log:
-                    self._debug_log = DebugLogPrinter()
-                else:
-                    self._debug_log = None
+                self._debug_log = DebugLogPrinter() if self._debug_log else None
             else:
                 assert isinstance(self._debug_log, DebugLogPrinter)
 
@@ -347,7 +344,7 @@ class RandomSearcher(BaseSearcher):
             num_tries = 1
             while pickle.dumps(new_config) in self._results:
                 assert num_tries <= self.MAX_RETRIES, \
-                    f"Cannot find new config in BaseSearcher, even after {self.MAX_RETRIES} trials"
+                        f"Cannot find new config in BaseSearcher, even after {self.MAX_RETRIES} trials"
                 new_config = self.configspace.sample_configuration().get_dictionary()
                 num_tries += 1
             self._results[pickle.dumps(new_config)] = self._reward_while_pending()
@@ -365,9 +362,8 @@ class RandomSearcher(BaseSearcher):
             if self._resource_attribute is not None:
                 # For HyperbandScheduler, also add the resource attribute
                 resource = int(kwargs[self._resource_attribute])
-                config_id = config_id + ':{}'.format(resource)
-            msg = "Update for config_id {}: reward = {}".format(
-                config_id, reward)
+                config_id = f'{config_id}:{resource}'
+            msg = f"Update for config_id {config_id}: reward = {reward}"
             logger.info(msg)
 
     def get_state(self):

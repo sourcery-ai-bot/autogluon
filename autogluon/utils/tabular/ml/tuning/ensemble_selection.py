@@ -29,19 +29,16 @@ class EnsembleSelection:
             self.random_state = random_state
         else:
             self.random_state = np.random.RandomState(seed=0)
-        if isinstance(metric, _ProbaScorer):
-            self.eval_metric_expects_y_pred = False
-        elif isinstance(metric, _ThresholdScorer):
-            self.eval_metric_expects_y_pred = False
-        else:
-            self.eval_metric_expects_y_pred = True
+        self.eval_metric_expects_y_pred = not isinstance(
+            metric, _ProbaScorer
+        ) and not isinstance(metric, _ThresholdScorer)
 
     def fit(self, predictions, labels, time_limit=None, identifiers=None):
         self.ensemble_size = int(self.ensemble_size)
         if self.ensemble_size < 1:
             raise ValueError('Ensemble size cannot be less than one!')
-        if not self.problem_type in PROBLEM_TYPES:
-            raise ValueError('Unknown problem type %s.' % self.problem_type)
+        if self.problem_type not in PROBLEM_TYPES:
+            raise ValueError(f'Unknown problem type {self.problem_type}.')
         # if not isinstance(self.metric, Scorer):
         #     raise ValueError('Metric must be of type scorer')
 
@@ -86,7 +83,7 @@ class EnsembleSelection:
                 ensemble_prediction /= s
 
                 weighted_ensemble_prediction = (s / float(s + 1)) * \
-                                               ensemble_prediction
+                                                   ensemble_prediction
             fant_ensemble_prediction = np.zeros(weighted_ensemble_prediction.shape)
             for j, pred in enumerate(predictions):
                 fant_ensemble_prediction[:] = weighted_ensemble_prediction + (1. / float(s + 1)) * pred
@@ -121,7 +118,10 @@ class EnsembleSelection:
                 time_elapsed = time.time() - time_start
                 time_left = time_limit - time_elapsed
                 if time_left <= 0:
-                    logger.warning('Warning: Ensemble Selection ran out of time, early stopping at iteration %s. This may mean that the time_limit specified is very small for this problem.' % (i+1))
+                    logger.warning(
+                        f'Warning: Ensemble Selection ran out of time, early stopping at iteration {i + 1}. This may mean that the time_limit specified is very small for this problem.'
+                    )
+
                     break
 
         min_score = np.min(trajectory)
@@ -136,9 +136,9 @@ class EnsembleSelection:
             self.trajectory_ = trajectory[:first_index_of_best+1]
             self.train_score_ = trajectory[first_index_of_best]  # TODO: Select best iteration or select final iteration? Earlier iteration could have a better score!
             self.ensemble_size = first_index_of_best + 1
-            logger.log(15, 'Ensemble size: %s' % self.ensemble_size)
+            logger.log(15, f'Ensemble size: {self.ensemble_size}')
 
-        logger.debug("Ensemble indices: "+str(self.indices_))
+        logger.debug(f"Ensemble indices: {str(self.indices_)}")
 
     def _calculate_weights(self):
         ensemble_members = Counter(self.indices_).most_common()
@@ -162,5 +162,4 @@ class EnsembleSelection:
     @staticmethod
     def weight_pred_probas(pred_probas, weights):
         preds_norm = [pred * weight for pred, weight in zip(pred_probas, weights)]
-        preds_ensemble = np.sum(preds_norm, axis=0)
-        return preds_ensemble
+        return np.sum(preds_norm, axis=0)

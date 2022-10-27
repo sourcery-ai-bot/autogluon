@@ -160,12 +160,9 @@ class _ThresholdScorer(Scorer):
 
 
 def scorer_expects_y_pred(scorer: Scorer):
-    if isinstance(scorer, _ProbaScorer):
-        return False
-    elif isinstance(scorer, _ThresholdScorer):
-        return False
-    else:
-        return True
+    return not isinstance(scorer, _ProbaScorer) and not isinstance(
+        scorer, _ThresholdScorer
+    )
 
 
 def make_scorer(name, score_func, optimum=1, greater_is_better=True,
@@ -309,7 +306,7 @@ def calculate_score(solution, prediction, task_type, metric,
         raise NotImplementedError(task_type)
 
     if all_scoring_functions:
-        score = dict()
+        score = {}
         if task_type in PROBLEM_TYPES_REGRESSION:
             # TODO put this into the regression metric itself
             cprediction = sanitize_array(prediction)
@@ -331,25 +328,22 @@ def calculate_score(solution, prediction, task_type, metric,
                 try:
                     score[func.name] = func(solution, prediction)
                 except ValueError as e:
-                    if e.args[0] == 'multiclass format is not supported':
-                        continue
-                    elif e.args[0] == "Samplewise metrics are not available "\
-                            "outside of multilabel classification.":
-                        continue
-                    elif e.args[0] == "Target is multiclass but "\
-                            "average='binary'. Please choose another average "\
-                            "setting, one of [None, 'micro', 'macro', 'weighted'].":
-                        continue
-                    else:
+                    if e.args[0] not in [
+                        'multiclass format is not supported',
+                        "Samplewise metrics are not available "
+                        "outside of multilabel classification.",
+                        "Target is multiclass but "
+                        "average='binary'. Please choose another average "
+                        "setting, one of [None, 'micro', 'macro', 'weighted'].",
+                    ]:
                         raise e
 
+    elif task_type in PROBLEM_TYPES_REGRESSION:
+        # TODO put this into the regression metric itself
+        cprediction = sanitize_array(prediction)
+        score = metric(solution, cprediction)
     else:
-        if task_type in PROBLEM_TYPES_REGRESSION:
-            # TODO put this into the regression metric itself
-            cprediction = sanitize_array(prediction)
-            score = metric(solution, cprediction)
-        else:
-            score = metric(solution, prediction)
+        score = metric(solution, prediction)
 
     return score
 
@@ -357,21 +351,20 @@ def calculate_score(solution, prediction, task_type, metric,
 def get_metric(metric, problem_type, metric_type):
     """Returns metric function by using its name if the metric is str.
     Performs basic check for metric compatibility with given problem type."""
-    if metric is not None and isinstance(metric, str):
-        if metric in CLASSIFICATION_METRICS:
-            if problem_type is not None and problem_type not in PROBLEM_TYPES_CLASSIFICATION:
-                raise ValueError(f"{metric_type}={metric} can only be used for classification problems")
-            return CLASSIFICATION_METRICS[metric]
-        elif metric in REGRESSION_METRICS:
-            if problem_type is not None and problem_type not in PROBLEM_TYPES_REGRESSION:
-                raise ValueError(f"{metric_type}={metric} can only be used for regression problems")
-            return REGRESSION_METRICS[metric]
-        elif metric == 'soft_log_loss':
-            return soft_log_loss
-        else:
-            raise ValueError(
-                f"{metric} is an unknown metric, see autogluon/utils/tabular/metrics/ for available options "
-                f"or how to define your own {metric_type} function"
-            )
-    else:
+    if metric is None or not isinstance(metric, str):
         return metric
+    if metric in CLASSIFICATION_METRICS:
+        if problem_type is not None and problem_type not in PROBLEM_TYPES_CLASSIFICATION:
+            raise ValueError(f"{metric_type}={metric} can only be used for classification problems")
+        return CLASSIFICATION_METRICS[metric]
+    elif metric in REGRESSION_METRICS:
+        if problem_type is not None and problem_type not in PROBLEM_TYPES_REGRESSION:
+            raise ValueError(f"{metric_type}={metric} can only be used for regression problems")
+        return REGRESSION_METRICS[metric]
+    elif metric == 'soft_log_loss':
+        return soft_log_loss
+    else:
+        raise ValueError(
+            f"{metric} is an unknown metric, see autogluon/utils/tabular/metrics/ for available options "
+            f"or how to define your own {metric_type} function"
+        )

@@ -16,8 +16,10 @@ def param_to_pretty_string(gluon_param, encoding):
     """
 
     assert isinstance(gluon_param, gluon.Parameter)
-    assert encoding is not None, \
-        "encoding of param {} should not be None".format(gluon_param.name)
+    assert (
+        encoding is not None
+    ), f"encoding of param {gluon_param.name} should not be None"
+
 
     param_as_numpy = encode_unwrap_parameter(
         mx.nd, gluon_param, encoding).asnumpy()

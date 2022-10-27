@@ -46,8 +46,7 @@ class TextClassificationPredictor(Classifier):
         Int corresponding to index of the predicted class.
         """
         proba = self.predict_proba(X)
-        ind = mx.nd.argmax(proba, axis=1).astype('int')
-        return ind
+        return mx.nd.argmax(proba, axis=1).astype('int')
 
     def predict_proba(self, X):
         """Predict class-probabilities of a given sentence / text-snippet.
@@ -93,7 +92,7 @@ class TextClassificationPredictor(Classifier):
         net = self.model
         if isinstance(dataset, AutoGluonObject):
             dataset = dataset.init()
-        if isinstance(dataset, AbstractGlueTask) or isinstance(dataset, AbstractCustomTask):
+        if isinstance(dataset, (AbstractGlueTask, AbstractCustomTask)):
             dataset = dataset.get_dataset('dev')
         if isinstance(ctx, list):
             ctx = ctx[0]
@@ -122,15 +121,17 @@ class TextClassificationPredictor(Classifier):
 def eval_func(model, loader_dev, metric, ctx, use_roberta):
     """Evaluate the model on validation dataset."""
     metric.reset()
-    for batch_id, seqs in enumerate(loader_dev):
+    for seqs in loader_dev:
         input_ids, valid_length, segment_ids, label = seqs
         input_ids = input_ids.as_in_context(ctx)
         valid_length = valid_length.as_in_context(ctx).astype('float32')
         label = label.as_in_context(ctx)
-        if use_roberta:
-            out = model(input_ids, valid_length)
-        else:
-            out = model(input_ids, segment_ids.as_in_context(ctx), valid_length)
+        out = (
+            model(input_ids, valid_length)
+            if use_roberta
+            else model(input_ids, segment_ids.as_in_context(ctx), valid_length)
+        )
+
         metric.update([label], [out])
 
     metric_nm, metric_val = metric.get()

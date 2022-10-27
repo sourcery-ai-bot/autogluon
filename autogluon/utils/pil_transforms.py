@@ -30,7 +30,7 @@ class Compose(object):
         return img
 
     def __repr__(self):
-        format_string = self.__class__.__name__ + '('
+        format_string = f'{self.__class__.__name__}('
         for t in self.transforms:
             format_string += '\n'
             format_string += '    {0}'.format(t)
@@ -41,13 +41,11 @@ class ToPIL(object):
     """Convert image from ndarray format to PIL
     """
     def __call__(self, img):
-        x = Image.fromarray(img.asnumpy())
-        return x
+        return Image.fromarray(img.asnumpy())
 
 class ToNDArray(object):
     def __call__(self, img):
-        x = mx.nd.array(np.array(img), mx.cpu(0))
-        return x
+        return mx.nd.array(np.array(img), mx.cpu(0))
 
 class ToTensor(object):
     def __call__(self, img):
@@ -68,10 +66,7 @@ class RandomResizedCrop(object):
     """
 
     def __init__(self, size, scale=(0.08, 1.0), ratio=(3. / 4., 4. / 3.), interpolation=Image.BILINEAR):
-        if isinstance(size, tuple):
-            self.size = size
-        else:
-            self.size = (size, size)
+        self.size = size if isinstance(size, tuple) else (size, size)
         if (scale[0] > scale[1]) or (ratio[0] > ratio[1]):
             warnings.warn("range should be of kind (min, max)")
 
@@ -84,7 +79,7 @@ class RandomResizedCrop(object):
         width, height = img.size
         area = height * width
 
-        for attempt in range(10):
+        for _ in range(10):
             target_area = random.uniform(*scale) * area
             log_ratio = (math.log(ratio[0]), math.log(ratio[1]))
             aspect_ratio = math.exp(random.uniform(*log_ratio))
@@ -251,7 +246,7 @@ class RandomHorizontalFlip(object):
         return img
 
     def __repr__(self):
-        return self.__class__.__name__ + '(p={})'.format(self.p)
+        return f'{self.__class__.__name__}(p={self.p})'
 
 class Lambda(object):
     """Apply a user-defined lambda as a transform.
@@ -260,14 +255,14 @@ class Lambda(object):
     """
 
     def __init__(self, lambd):
-        assert callable(lambd), repr(type(lambd).__name__) + " object is not callable"
+        assert callable(lambd), f"{repr(type(lambd).__name__)} object is not callable"
         self.lambd = lambd
 
     def __call__(self, img):
         return self.lambd(img)
 
     def __repr__(self):
-        return self.__class__.__name__ + '()'
+        return f'{self.__class__.__name__}()'
 
 class ColorJitter(object):
     """Randomly change the brightness, contrast and saturation of an image.
@@ -295,15 +290,18 @@ class ColorJitter(object):
     def _check_input(self, value, name, center=1, bound=(0, float('inf')), clip_first_on_zero=True):
         if isinstance(value, numbers.Number):
             if value < 0:
-                raise ValueError("If {} is a single number, it must be non negative.".format(name))
+                raise ValueError(f"If {name} is a single number, it must be non negative.")
             value = [center - value, center + value]
             if clip_first_on_zero:
                 value[0] = max(value[0], 0)
         elif isinstance(value, (tuple, list)) and len(value) == 2:
             if not bound[0] <= value[0] <= value[1] <= bound[1]:
-                raise ValueError("{} values should be between {}".format(name, bound))
+                raise ValueError(f"{name} values should be between {bound}")
         else:
-            raise TypeError("{} should be a single number or a list/tuple with lenght 2.".format(name))
+            raise TypeError(
+                f"{name} should be a single number or a list/tuple with lenght 2."
+            )
+
 
         # if value is 0 or (1., 1.) for brightness/contrast/saturation
         # or (0., 0.) for hue, do nothing
@@ -338,9 +336,7 @@ class ColorJitter(object):
             transforms.append(Lambda(lambda img: adjust_hue(img, hue_factor)))
 
         random.shuffle(transforms)
-        transform = Compose(transforms)
-
-        return transform
+        return Compose(transforms)
 
     def __call__(self, img):
         """
@@ -354,7 +350,7 @@ class ColorJitter(object):
         return transform(img)
 
     def __repr__(self):
-        format_string = self.__class__.__name__ + '('
+        format_string = f'{self.__class__.__name__}('
         format_string += 'brightness={0}'.format(self.brightness)
         format_string += ', contrast={0}'.format(self.contrast)
         format_string += ', saturation={0}'.format(self.saturation)
@@ -432,23 +428,23 @@ def crop(img, top, left, height, width):
     return img.crop((left, top, left + width, top + height))
 
 def resize(img, size, interpolation=Image.BILINEAR):
-    if not (isinstance(size, int) or (isinstance(size, collections.Iterable) and len(size) == 2)):
-        raise TypeError('Got inappropriate size arg: {}'.format(size))
+    if not isinstance(size, int) and (
+        not isinstance(size, collections.Iterable) or len(size) != 2
+    ):
+        raise TypeError(f'Got inappropriate size arg: {size}')
 
-    if isinstance(size, int):
-        w, h = img.size
-        if (w <= h and w == size) or (h <= w and h == size):
-            return img
-        if w < h:
-            ow = size
-            oh = int(size * h / w)
-            return img.resize((ow, oh), interpolation)
-        else:
-            oh = size
-            ow = int(size * w / h)
-            return img.resize((ow, oh), interpolation)
-    else:
+    if not isinstance(size, int):
         return img.resize(size[::-1], interpolation)
+    w, h = img.size
+    if (w <= h and w == size) or (h <= w and h == size):
+        return img
+    if w < h:
+        ow = size
+        oh = int(size * h / w)
+    else:
+        oh = size
+        ow = int(size * w / h)
+    return img.resize((ow, oh), interpolation)
 
 def adjust_brightness(img, brightness_factor):
     enhancer = ImageEnhance.Brightness(img)
@@ -492,8 +488,10 @@ def pad(img, padding, fill=0, padding_mode='constant'):
         raise TypeError('Got inappropriate padding_mode arg')
 
     if isinstance(padding, Sequence) and len(padding) not in [2, 4]:
-        raise ValueError("Padding must be an int or a 2, or 4 element tuple, not a " +
-                         "{} element tuple".format(len(padding)))
+        raise ValueError(
+            f"Padding must be an int or a 2, or 4 element tuple, not a {len(padding)} element tuple"
+        )
+
 
     assert padding_mode in ['constant', 'edge', 'reflect', 'symmetric'], \
         'Padding mode should be either constant, edge, reflect or symmetric'

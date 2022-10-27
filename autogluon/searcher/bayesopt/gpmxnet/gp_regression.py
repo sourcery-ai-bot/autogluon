@@ -145,11 +145,12 @@ class GaussianProcessRegression(GaussianProcessModel):
 
         X = self._check_and_format_input(X)
         Y = self._check_and_format_input(Y)
-        assert X.shape[0] == Y.shape[0], \
-            "X and Y should have the same number of points (received {} and {})".format(
-                X.shape[0], Y.shape[0])
+        assert (
+            X.shape[0] == Y.shape[0]
+        ), f"X and Y should have the same number of points (received {X.shape[0]} and {Y.shape[0]})"
+
         assert Y.shape[1] == 1, \
-            "Y cannot be a matrix if parameters are to be fit"
+                "Y cannot be a matrix if parameters are to be fit"
 
         if self.fit_reset_params:
             self.reset_params()
@@ -172,15 +173,16 @@ class GaussianProcessRegression(GaussianProcessModel):
         # Logging in response to failures of optimization runs
         n_succeeded = sum(x is None for x in ret_infos)
         if n_succeeded < n_starts:
-            log_msg = "[GaussianProcessRegression.fit]\n"
-            log_msg += ("{} of the {} restarts failed with the following exceptions:\n".format(
-                n_starts - n_succeeded, n_starts))
+            log_msg = (
+                "[GaussianProcessRegression.fit]\n"
+                + f"{n_starts - n_succeeded} of the {n_starts} restarts failed with the following exceptions:\n"
+            )
+
             for i, ret_info in enumerate(ret_infos):
                 if ret_info is not None:
-                    log_msg += ("- Restart {}: Exception {}\n".format(
-                        i, ret_info['type']))
-                    log_msg += ("  Message: {}\n".format(ret_info['msg']))
-                    log_msg += ("  Args: {}\n".format(ret_info['args']))
+                    log_msg += f"- Restart {i}: Exception {ret_info['type']}\n"
+                    log_msg += f"  Message: {ret_info['msg']}\n"
+                    log_msg += f"  Args: {ret_info['args']}\n"
                     logger.info(log_msg)
             if n_succeeded == 0:
                 logger.info("All restarts failed: Skipping hyperparameter fitting for now")
@@ -194,9 +196,10 @@ class GaussianProcessRegression(GaussianProcessModel):
         """
         X = self._check_and_format_input(X)
         Y = self._check_and_format_input(Y)
-        assert X.shape[0] == Y.shape[0], \
-            "X and Y should have the same number of points (received {} and {})".format(
-                X.shape[0], Y.shape[0])
+        assert (
+            X.shape[0] == Y.shape[0]
+        ), f"X and Y should have the same number of points (received {X.shape[0]} and {Y.shape[0]})"
+
         assert self._states is not None, self._states
         self._recompute_states(X, Y, profiler=profiler)
 

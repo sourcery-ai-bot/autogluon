@@ -79,7 +79,7 @@ class SquaredDistance(gluon.HybridBlock):
         super(SquaredDistance, self).__init__(**kwargs)
 
         self.ARD = ARD
-        inverse_bandwidths_dimension = 1 if not ARD else dimension
+        inverse_bandwidths_dimension = dimension if ARD else 1
         self.encoding = create_encoding(
             encoding_type, INITIAL_INVERSE_BANDWIDTHS,
             INVERSE_BANDWIDTHS_LOWER_BOUND, INVERSE_BANDWIDTHS_UPPER_BOUND,
@@ -138,18 +138,18 @@ class SquaredDistance(gluon.HybridBlock):
             return {'inv_bw': inverse_bandwidths[0]}
         else:
             return {
-                'inv_bw{}'.format(k): inverse_bandwidths[k]
-                for k in range(inverse_bandwidths.size)}
+                f'inv_bw{k}': inverse_bandwidths[k]
+                for k in range(inverse_bandwidths.size)
+            }
 
     def set_params(self, param_dict):
         dimension = self.encoding.dimension
         if dimension == 1:
             inverse_bandwidths = [param_dict['inv_bw']]
         else:
-            keys = ['inv_bw{}'.format(k) for k in range(dimension)]
+            keys = [f'inv_bw{k}' for k in range(dimension)]
             for k in keys:
-                assert k in param_dict, \
-                    "'{}' not in param_dict = {}".format(k, param_dict)
+                assert k in param_dict, f"'{k}' not in param_dict = {param_dict}"
             inverse_bandwidths = [param_dict[k] for k in keys]
         self.encoding.set(self.inverse_bandwidths_internal, inverse_bandwidths)
 
@@ -203,10 +203,9 @@ class Matern52(KernelFunction):
         # (non-differentiability)
         # that's why we add NUMERICAL_JITTER
         B = F.sqrt(5.0 * D + NUMERICAL_JITTER)
-        K = F.broadcast_mul(
-            (1.0 + B + 5.0 / 3.0 * D) * F.exp(-B), covariance_scale)
-
-        return K
+        return F.broadcast_mul(
+            (1.0 + B + 5.0 / 3.0 * D) * F.exp(-B), covariance_scale
+        )
 
     def _covariance_scale(self, F, X):
         return encode_unwrap_parameter(

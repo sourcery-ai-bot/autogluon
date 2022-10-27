@@ -11,8 +11,7 @@ def vectorizer_auto_ml_default():
 def get_ngram_freq(vectorizer, transform_matrix):
     names = vectorizer.get_feature_names()
     frequencies = transform_matrix.sum(axis=0).tolist()[0]
-    ngram_freq = {ngram: freq for ngram, freq in zip(names, frequencies)}
-    return ngram_freq
+    return dict(zip(names, frequencies))
 
 
 # Reduces vectorizer vocabulary size to vocab_size, keeping highest frequency ngrams

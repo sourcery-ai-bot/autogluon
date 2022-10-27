@@ -28,7 +28,7 @@ def preprocess_data(tokenizer, task, batch_size, dev_batch_size, max_len, vocab,
     pool = multiprocessing.Pool()
     nlp = try_import_gluonnlp()
     # transformation for data train and dev
-    label_dtype = 'float32' if not task.class_labels else 'int32'
+    label_dtype = 'int32' if task.class_labels else 'float32'
     trans = BERTDatasetTransform(tokenizer, max_len,
                                  vocab=vocab,
                                  class_labels=task.class_labels,
@@ -205,8 +205,10 @@ def train_text_classification(args, reporter=None):
         if not isinstance(metric_nm, list):
             metric_nm, metric_val = [metric_nm], [metric_val]
 
-        train_str = '[Epoch %d] loss=%.4f, lr=%.7f, metrics:' + \
-                    ','.join([i + ':%.4f' for i in metric_nm])
+        train_str = '[Epoch %d] loss=%.4f, lr=%.7f, metrics:' + ','.join(
+            [f'{i}:%.4f' for i in metric_nm]
+        )
+
         tbar.set_description(train_str % (epoch_id, step_loss / log_interval, learning_rate, *metric_val))
 
     def log_eval(batch_id, batch_num, metric, step_loss, log_interval, tbar):
@@ -215,8 +217,7 @@ def train_text_classification(args, reporter=None):
         if not isinstance(metric_nm, list):
             metric_nm, metric_val = [metric_nm], [metric_val]
 
-        eval_str = 'loss=%.4f, metrics:' + \
-                   ','.join([i + ':%.4f' for i in metric_nm])
+        eval_str = ('loss=%.4f, metrics:' + ','.join([f'{i}:%.4f' for i in metric_nm]))
         tbar.set_description(eval_str % (step_loss / log_interval, *metric_val))
 
     def evaluate(loader_dev, metric, segment):
@@ -245,7 +246,7 @@ def train_text_classification(args, reporter=None):
         metric_nm, metric_val = metric.get()
         if not isinstance(metric_nm, list):
             metric_nm, metric_val = [metric_nm], [metric_val]
-        metric_str = 'validation metrics:' + ','.join([i + ':%.4f' for i in metric_nm])
+        metric_str = 'validation metrics:' + ','.join([f'{i}:%.4f' for i in metric_nm])
         logger.info(metric_str, *metric_val)
 
         mx.nd.waitall()
@@ -324,7 +325,7 @@ def train_text_classification(args, reporter=None):
             if not accumulate or (batch_id + 1) % accumulate == 0:
                 trainer.allreduce_grads()
                 nlp.utils.clip_grad_global_norm(params, 1)
-                trainer.update(accumulate if accumulate else 1)
+                trainer.update(accumulate or 1)
                 step_num += 1
                 if accumulate and accumulate > 1:
                     # set grad to zero for gradient accumulation

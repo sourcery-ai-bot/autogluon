@@ -34,16 +34,16 @@ class TaskScheduler(object):
     _remote_manager = None
 
     @ClassProperty
-    def resource_manager(cls):
-        if cls._resource_manager is None:
-            cls._resource_manager = DistributedResourceManager()
-        return cls._resource_manager
+    def resource_manager(self):
+        if self._resource_manager is None:
+            self._resource_manager = DistributedResourceManager()
+        return self._resource_manager
 
     @ClassProperty
-    def remote_manager(cls):
-        if cls._remote_manager is None:
-            cls._remote_manager = RemoteManager()
-        return cls._remote_manager
+    def remote_manager(self):
+        if self._remote_manager is None:
+            self._remote_manager = RemoteManager()
+        return self._remote_manager
 
     def __init__(self, dist_ip_addrs=None):
         if dist_ip_addrs is None:
@@ -71,9 +71,8 @@ class TaskScheduler(object):
     def _dict_from_task(self, task):
         if isinstance(task, Task):
             return {'TASK_ID': task.task_id, 'Args': task.args}
-        else:
-            assert isinstance(task, dict)
-            return {'TASK_ID': task['TASK_ID'], 'Args': task['Args']}
+        assert isinstance(task, dict)
+        return {'TASK_ID': task['TASK_ID'], 'Args': task['Args']}
 
     def add_task(self, task, **kwargs):
         """add_task() is now deprecated in favor of add_job().
@@ -232,13 +231,11 @@ class TaskScheduler(object):
         """
         self.finished_tasks = pickle.loads(state_dict['finished_tasks'])
         Task.set_id(state_dict['TASK_ID'])
-        logger.debug('\nLoading finished_tasks: {} '.format(self.finished_tasks))
+        logger.debug(f'\nLoading finished_tasks: {self.finished_tasks} ')
 
     @property
     def num_finished_tasks(self):
         return len(self.finished_tasks)
 
     def __repr__(self):
-        reprstr = self.__class__.__name__ + '(\n' + \
-            str(self.resource_manager) +')\n'
-        return reprstr
+        return self.__class__.__name__ + '(\n' + str(self.resource_manager) + ')\n'

@@ -73,7 +73,8 @@ def slice_sampler_step_in(lower_bound: float, upper_bound: float, log_pivot: flo
             raise SliceException("The interval for slice sampling has reduced to zero in step in")
         if sliced_log_density(movement) > log_pivot:
             return movement
-        else:
-            lower_bound = movement if movement < 0.0 else lower_bound
-            upper_bound = movement if movement > 0.0 else upper_bound
-    raise SliceException("Reach maximum iteration ({}) while stepping in".format(MAX_STEP_LOOP))
+        lower_bound = movement if movement < 0.0 else lower_bound
+        upper_bound = movement if movement > 0.0 else upper_bound
+    raise SliceException(
+        f"Reach maximum iteration ({MAX_STEP_LOOP}) while stepping in"
+    )

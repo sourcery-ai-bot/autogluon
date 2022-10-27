@@ -127,14 +127,14 @@ class Warping(gluon.HybridBlock):
                 # and managed by Warping, we register it as a child.
                 self.register_child(transformation, name=transformation.name)
                 self._params_encoding_pairs += \
-                    transformation.param_encoding_pairs()
+                        transformation.param_encoding_pairs()
                 some_are_warped = True
             else:
                 # if a column is not warped, we do not apply any transformation
                 transformation = lambda x: x
             self.transformations.append(transformation)
         assert some_are_warped, \
-            "At least one of the dimensions must be warped"
+                "At least one of the dimensions must be warped"
 
     def hybrid_forward(self, F, X):
         """
@@ -167,7 +167,7 @@ class Warping(gluon.HybridBlock):
         if len(self.transformations) == 1:
             result = self.transformations[0].get_params()
         else:
-            result = dict()
+            result = {}
             for i, warping in enumerate(self.transformations):
                 if isinstance(warping, OneDimensionalWarping):
                     istr = str(i)
@@ -185,9 +185,7 @@ class Warping(gluon.HybridBlock):
                     if transf_keys is None:
                         transf_keys = warping.get_params().keys()
                     istr = str(i)
-                    stripped_dict = dict()
-                    for k in transf_keys:
-                        stripped_dict[k] = param_dict[k + istr]
+                    stripped_dict = {k: param_dict[k + istr] for k in transf_keys}
                     warping.set_params(stripped_dict)
 
 
@@ -216,10 +214,7 @@ class WarpedKernel(KernelFunction):
         """
 
         warped_X1 = self.warping(X1)
-        if X1 is X2:
-            warped_X2 = warped_X1
-        else:
-            warped_X2 = self.warping(X2)
+        warped_X2 = warped_X1 if X1 is X2 else self.warping(X2)
         return self.kernel(warped_X1, warped_X2)
 
     def diagonal(self, F, X):

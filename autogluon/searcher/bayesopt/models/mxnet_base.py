@@ -29,7 +29,7 @@ class SurrogateModelMXNet(SurrogateModel):
             dtype_nd = DATA_TYPE
         super(SurrogateModelMXNet, self).__init__(
             state, active_metric, random_seed)
-        assert dtype_nd == np.float32 or dtype_nd == np.float64
+        assert dtype_nd in [np.float32, np.float64]
         self.ctx_nd = ctx_nd
         self.dtype_nd = dtype_nd
         self._current_best = None
@@ -47,12 +47,13 @@ class SurrogateModelMXNet(SurrogateModel):
         X_nd = self.convert_np_to_nd(X)
         predictions_nd = self.predict_nd(X_nd)
 
-        predictions_list = [
-            (m_nd.asnumpy().astype(dtype_np, copy=False),
-             s_nd.asnumpy().astype(dtype_np, copy=False))
+        return [
+            (
+                m_nd.asnumpy().astype(dtype_np, copy=False),
+                s_nd.asnumpy().astype(dtype_np, copy=False),
+            )
             for m_nd, s_nd in predictions_nd
         ]
-        return predictions_list
 
     def context_for_nd(self) -> mx.Context:
         return self.ctx_nd
@@ -62,9 +63,9 @@ class SurrogateModelMXNet(SurrogateModel):
 
     def _get_dtypes(self, x: np.ndarray):
         dtype_np = x.dtype
-        if dtype_np == np.int32 or dtype_np == np.int64:
+        if dtype_np in [np.int32, np.int64]:
             dtype_np = np.float64
-        assert dtype_np == np.float32 or dtype_np == np.float64
+        assert dtype_np in [np.float32, np.float64]
         dtype_nd = self.dtype_nd
         return dtype_np, dtype_nd
 
@@ -83,10 +84,12 @@ class SurrogateModelMXNet(SurrogateModel):
 
             candidates = [
                 x.candidate for x in self.state.candidate_evaluations] + \
-                         self.state.pending_candidates
+                             self.state.pending_candidates
             if self._debug_log is not None:
-                deb_msg = "[GPMXNetModel.current_best -- RECOMPUTING]\n"
-                deb_msg += ("- len(candidates) = {}".format(len(candidates)))
+                deb_msg = "[GPMXNetModel.current_best -- RECOMPUTING]\n" + (
+                    "- len(candidates) = {}".format(len(candidates))
+                )
+
                 logger.info(deb_msg)
 
             if len(candidates) == 0:

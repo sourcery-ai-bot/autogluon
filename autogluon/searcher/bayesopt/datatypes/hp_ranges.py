@@ -59,19 +59,16 @@ def scale_from_zero_one(
     assert 0.0 <= value <= 1.0, value
     if lower_bound == upper_bound:
         return lower_bound
-    else:
-        lower = scaling.to_internal(lower_bound)
-        upper = scaling.to_internal(upper_bound)
-        range = upper - lower
-        assert range > 0, (lower, upper)
-        internal_value = value * range + lower
-        hp = scaling.from_internal(internal_value)
+    lower = scaling.to_internal(lower_bound)
+    upper = scaling.to_internal(upper_bound)
+    range = upper - lower
+    assert range > 0, (lower, upper)
+    internal_value = value * range + lower
+    hp = scaling.from_internal(internal_value)
         # set value in case it is off due to numerical rounding
-        if hp < lower_bound:
-            hp = lower_bound
-        if hp > upper_bound:
-            hp = upper_bound
-        return hp
+    hp = max(hp, lower_bound)
+    hp = min(hp, upper_bound)
+    return hp
 
 
 class HyperparameterRangeContinuous(HyperparameterRange):
@@ -131,18 +128,14 @@ class HyperparameterRangeContinuous(HyperparameterRange):
                                    self.upper_bound, self.scaling)
 
     def __repr__(self) -> str:
-        return "{}({}, {}, {}, {}, {}, {})".format(
-            self.__class__.__name__, repr(self.name),
-            repr(self.active_lower_bound), repr(self.active_upper_bound),
-            repr(self.scaling), repr(self.lower_bound), repr(self.upper_bound)
-        )
+        return f"{self.__class__.__name__}({repr(self.name)}, {repr(self.active_lower_bound)}, {repr(self.active_upper_bound)}, {repr(self.scaling)}, {repr(self.lower_bound)}, {repr(self.upper_bound)})"
 
     def __eq__(self, other: object) -> bool:
         if isinstance(other, HyperparameterRangeContinuous):
             return self.name == other.name \
-                   and self.lower_bound == other.lower_bound \
-                   and self.upper_bound == other.upper_bound \
-                   and self.scaling == other.scaling
+                       and self.lower_bound == other.lower_bound \
+                       and self.upper_bound == other.upper_bound \
+                       and self.scaling == other.scaling
         return False
 
     def from_zero_one(self, normalized_value: float) -> float:
@@ -162,9 +155,9 @@ class HyperparameterRangeInteger(HyperparameterRange):
         # reduce the range by epsilon at both ends, to avoid corner cases where numerical rounding
         # would cause a value that would end up out of range by one
         active_lower_bound = lower_bound if active_lower_bound is None \
-            else active_lower_bound
+                else active_lower_bound
         active_upper_bound = upper_bound if active_upper_bound is None \
-            else active_upper_bound
+                else active_upper_bound
 
         self.lower_bound = lower_bound
         self.upper_bound = upper_bound
@@ -190,28 +183,23 @@ class HyperparameterRangeInteger(HyperparameterRange):
         return result
 
     def __repr__(self) -> str:
-        return "{}({}, {}, {}, {}, {}, {})".format(
-            self.__class__.__name__, repr(self.name),
-            repr(self.active_lower_bound), repr(self.active_upper_bound),
-            repr(self.scaling), repr(self.lower_bound), repr(self.upper_bound)
-        )
+        return f"{self.__class__.__name__}({repr(self.name)}, {repr(self.active_lower_bound)}, {repr(self.active_upper_bound)}, {repr(self.scaling)}, {repr(self.lower_bound)}, {repr(self.upper_bound)})"
 
     def __eq__(self, other):
         if isinstance(other, HyperparameterRangeInteger):
             return self.name == other.name \
-                   and self.lower_bound == other.lower_bound \
-                   and self.upper_bound == other.upper_bound \
-                   and self.active_lower_bound == other.active_lower_bound \
-                   and self.active_upper_bound == other.active_upper_bound \
-                   and self.scaling == other.scaling
+                       and self.lower_bound == other.lower_bound \
+                       and self.upper_bound == other.upper_bound \
+                       and self.active_lower_bound == other.active_lower_bound \
+                       and self.active_upper_bound == other.active_upper_bound \
+                       and self.scaling == other.scaling
         return False
 
     def from_zero_one(self, normalized_value: float) -> Hyperparameter:
         scaling_result = scale_from_zero_one(
             normalized_value, self._continuous_range.active_lower_bound,
             self._continuous_range.active_upper_bound, self.scaling)
-        result = int(round(scaling_result))
-        return result
+        return int(round(scaling_result))
 
 
 class HyperparameterRangeCategorical(HyperparameterRange):
@@ -233,7 +221,7 @@ class HyperparameterRangeCategorical(HyperparameterRange):
         assert set(self.choices).issuperset(self.active_choices)
 
     def to_ndarray(self, hp: str) -> np.ndarray:
-        assert hp in self.choices, "{} not in {}".format(hp, self)
+        assert hp in self.choices, f"{hp} not in {self}"
         idx = self.choices.index(hp)
         result = np.zeros(shape=(len(self.choices),))
         result[idx] = 1.0
@@ -253,14 +241,12 @@ class HyperparameterRangeCategorical(HyperparameterRange):
             return self.active_choices[int(floor(normalized_value * len(self.active_choices)))]
 
     def __repr__(self) -> str:
-        return "{}({}, {})".format(
-            self.__class__.__name__, repr(self.name), repr(self.choices)
-        )
+        return f"{self.__class__.__name__}({repr(self.name)}, {repr(self.choices)})"
 
     def __eq__(self, other) -> bool:
         if isinstance(other, HyperparameterRangeCategorical):
             return self.name == other.name \
-                   and self.choices == other.choices
+                       and self.choices == other.choices
         return False
 
 
@@ -342,7 +328,7 @@ class HyperparameterRanges_Impl(HyperparameterRanges):
 
         names = [hp_range.name for hp_range in args]
         if len(set(names)) != len(names):
-            raise ValueError("duplicate names in {}".format(names))
+            raise ValueError(f"duplicate names in {names}")
 
     def to_ndarray(self, cand_tuple: Candidate) -> np.ndarray:
         pieces = [hp_range.to_ndarray(hp) for hp_range, hp in zip(self._hp_ranges, cand_tuple)]
@@ -406,8 +392,7 @@ class HyperparameterRanges_Impl(HyperparameterRanges):
         bound_it = iter(bounds)
         for i, hp_range in enumerate(self._hp_ranges):
             if isinstance(hp_range, HyperparameterRangeCategorical):
-                for _ in range(len(hp_range.choices)):
-                    new_bounds.append(next(bound_it))
+                new_bounds.extend(next(bound_it) for _ in range(len(hp_range.choices)))
             else:
                 low, high = next(bound_it)
                 x = hp_range.to_ndarray(candidate[i]).item()
@@ -429,9 +414,7 @@ class HyperparameterRanges_Impl(HyperparameterRanges):
                 for _ in range(num_configs)]
 
     def __repr__(self) -> str:
-        return "{}{}".format(
-            self.__class__.__name__, repr(self._hp_ranges)
-        )
+        return f"{self.__class__.__name__}{repr(self._hp_ranges)}"
 
     def __eq__(self, other: object) -> bool:
         if isinstance(other, HyperparameterRanges_Impl):

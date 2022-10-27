@@ -13,7 +13,7 @@ def get_split_samplers(train_dataset, split_ratio=0.8):
     indices = list(range(num_samples))
     np.random.seed(SPLIT_SEED)
     np.random.shuffle(indices)
-    train_sampler = SplitSampler(indices[0: split_idx])
+    train_sampler = SplitSampler(indices[:split_idx])
     val_sampler = SplitSampler(indices[split_idx:num_samples])
     return train_sampler, val_sampler
 

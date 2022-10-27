@@ -40,17 +40,17 @@ class Task(object):
 
     @classmethod
     def set_id(cls, taskid):
-        logger.info('Setting TASK ID: {}'.format(taskid))
+        logger.info(f'Setting TASK ID: {taskid}')
         cls.TASK_ID.value = taskid
 
     def __repr__(self):
         reprstr = self.__class__.__name__ +  \
-            ' (' + 'task_id: ' + str(self.task_id) + \
-            ',\n\tfn: ' + str(self.fn) + \
-            ',\n\targs: {'
+                ' (' + 'task_id: ' + str(self.task_id) + \
+                ',\n\tfn: ' + str(self.fn) + \
+                ',\n\targs: {'
         for k, v in self.args.items():
             data = str(v)
-            info = (data[:100] + '..') if len(data) > 100 else data
-            reprstr +=  '{}'.format(k) + ': ' + info + ', '
+            info = f'{data[:100]}..' if len(data) > 100 else data
+            reprstr += f'{k}: {info}, '
         reprstr +=  '},\n\tresource: ' + str(self.resources) + ')\n'
         return reprstr

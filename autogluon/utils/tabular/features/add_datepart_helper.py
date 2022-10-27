@@ -24,7 +24,7 @@ def add_datepart(df: DataFrame, field_name: str, prefix: str = None, drop: bool 
         'Is_quarter_end', 'Is_quarter_start', 'Is_year_end', 'Is_year_start'
     ]
     if time:
-        attr = attr + ['Hour', 'Minute', 'Second']
+        attr += ['Hour', 'Minute', 'Second']
     for n in attr:
         df[prefix + n] = getattr(field.dt, n.lower())
     df[prefix + 'Elapsed'] = field.astype(np.int64) // 10 ** 9

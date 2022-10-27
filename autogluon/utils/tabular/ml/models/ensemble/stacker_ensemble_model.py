@@ -59,10 +59,9 @@ class StackerEnsembleModel(BaggedEnsembleModel):
         for key in model_type_groups:
             model_type_groups[key] = model_type_groups[key][:max_models_per_type]
         models_remain = []
-        for key in model_type_groups:
-            models_remain += model_type_groups[key]
-        models_valid = [model for model, score in models_remain]
-        return models_valid
+        for value in model_type_groups.values():
+            models_remain += value
+        return [model for model, score in models_remain]
 
     def limit_models(self, models, model_scores, max_models):
         model_types = {model: '' for model in models}
@@ -75,9 +74,8 @@ class StackerEnsembleModel(BaggedEnsembleModel):
 
     def preprocess(self, X, preprocess=True, fit=False, compute_base_preds=True, infer=True, model=None, model_pred_proba_dict=None):
         if self.stack_column_prefix_lst:
-            if infer:
-                if set(self.stack_columns).issubset(set(list(X.columns))):
-                    compute_base_preds = False  # TODO: Consider removing, this can be dangerous but the code to make this work otherwise is complex (must rewrite predict_proba)
+            if infer and set(self.stack_columns).issubset(set(list(X.columns))):
+                compute_base_preds = False  # TODO: Consider removing, this can be dangerous but the code to make this work otherwise is complex (must rewrite predict_proba)
             if compute_base_preds:
                 X_stacker = []
                 for stack_column_prefix in self.stack_column_prefix_lst:
@@ -93,10 +91,7 @@ class StackerEnsembleModel(BaggedEnsembleModel):
                         y_pred_proba = base_model.predict_proba(X)
                     X_stacker.append(y_pred_proba)  # TODO: This could get very large on a high class count problem. Consider capping to top N most frequent classes and merging least frequent
                 X_stacker = self.pred_probas_to_df(X_stacker, index=X.index)
-                if self.use_orig_features:
-                    X = pd.concat([X_stacker, X], axis=1)
-                else:
-                    X = X_stacker
+                X = pd.concat([X_stacker, X], axis=1) if self.use_orig_features else X_stacker
             elif not self.use_orig_features:
                 X = X[self.stack_columns]
         if preprocess:
@@ -150,19 +145,21 @@ class StackerEnsembleModel(BaggedEnsembleModel):
     # TODO: Currently double disk usage, saving model in HPO and also saving model in stacker
     def hyperparameter_tune(self, X, y, k_fold, scheduler_options=None, compute_base_preds=True, **kwargs):
         if len(self.models) != 0:
-            raise ValueError('self.models must be empty to call hyperparameter_tune, value: %s' % self.models)
+            raise ValueError(
+                f'self.models must be empty to call hyperparameter_tune, value: {self.models}'
+            )
 
-        if len(self.models) == 0:
-            if self.feature_types_metadata is None:  # TODO: This is probably not the best way to do this
-                feature_types_raw = defaultdict(list)
-                feature_types_raw['float'] = self.stack_columns
-                feature_types_special = defaultdict(list)
-                feature_types_special['stack'] = self.stack_columns
-                self.feature_types_metadata = FeatureTypesMetadata(feature_types_raw=feature_types_raw, feature_types_special=feature_types_special)
-            else:
-                self.feature_types_metadata = copy.deepcopy(self.feature_types_metadata)
-                self.feature_types_metadata.feature_types_raw['float'] += self.stack_columns
-                self.feature_types_metadata.feature_types_special['stack'] += self.stack_columns
+
+        if self.feature_types_metadata is None:  # TODO: This is probably not the best way to do this
+            feature_types_raw = defaultdict(list)
+            feature_types_raw['float'] = self.stack_columns
+            feature_types_special = defaultdict(list)
+            feature_types_special['stack'] = self.stack_columns
+            self.feature_types_metadata = FeatureTypesMetadata(feature_types_raw=feature_types_raw, feature_types_special=feature_types_special)
+        else:
+            self.feature_types_metadata = copy.deepcopy(self.feature_types_metadata)
+            self.feature_types_metadata.feature_types_raw['float'] += self.stack_columns
+            self.feature_types_metadata.feature_types_special['stack'] += self.stack_columns
         self.model_base.feature_types_metadata = self.feature_types_metadata  # TODO: Move this
 
         # TODO: Preprocess data here instead of repeatedly
@@ -226,12 +223,10 @@ class StackerEnsembleModel(BaggedEnsembleModel):
 
     def load_base_model(self, model_name):
         if model_name in self.base_models_dict.keys():
-            model = self.base_models_dict[model_name]
-        else:
-            model_type = self.base_model_types_dict[model_name]
-            model_path = self.base_model_paths_dict[model_name]
-            model = model_type.load(model_path)
-        return model
+            return self.base_models_dict[model_name]
+        model_type = self.base_model_types_dict[model_name]
+        model_path = self.base_model_paths_dict[model_name]
+        return model_type.load(model_path)
 
     def get_info(self):
         info = super().get_info()

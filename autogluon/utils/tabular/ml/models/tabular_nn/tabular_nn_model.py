@@ -115,7 +115,7 @@ class TabularNeuralNetModel(AbstractModel):
 
     def set_net_defaults(self, train_dataset, params):
         """ Sets dataset-adaptive default values to use for our neural network """
-        if (self.problem_type == MULTICLASS) or (self.problem_type == SOFTCLASS):
+        if self.problem_type in [MULTICLASS, SOFTCLASS]:
             self.num_net_outputs = train_dataset.num_classes
         elif self.problem_type == REGRESSION:
             self.num_net_outputs = 1
@@ -125,19 +125,13 @@ class TabularNeuralNetModel(AbstractModel):
                 max_y = float(max(y_vals))
                 std_y = np.std(y_vals)
                 y_ext = params['y_range_extend'] * std_y
-                if min_y >= 0: # infer y must be nonnegative
-                    min_y = max(0, min_y-y_ext)
-                else:
-                    min_y = min_y-y_ext
-                if max_y <= 0: # infer y must be non-positive
-                    max_y = min(0, max_y+y_ext)
-                else:
-                    max_y = max_y+y_ext
+                min_y = max(0, min_y-y_ext) if min_y >= 0 else min_y-y_ext
+                max_y = min(0, max_y+y_ext) if max_y <= 0 else max_y+y_ext
                 params['y_range'] = (min_y, max_y)
         elif self.problem_type == BINARY:
             self.num_net_outputs = 2
         else:
-            raise ValueError("unknown problem_type specified: %s" % self.problem_type)
+            raise ValueError(f"unknown problem_type specified: {self.problem_type}")
 
         if params['layers'] is None:  # Use default choices for MLP architecture
             if self.problem_type == REGRESSION:
@@ -240,7 +234,11 @@ class TabularNeuralNetModel(AbstractModel):
                 setup_trainer (bool): set = False to reuse the same trainer from a previous training run, otherwise creates new trainer from scratch
         """
         start_time = time.time()
-        logger.log(15, "Training neural network for up to %s epochs..." % params['num_epochs'])
+        logger.log(
+            15,
+            f"Training neural network for up to {params['num_epochs']} epochs...",
+        )
+
         seed_value = params.get('seed_value')
         if seed_value is not None:  # Set seed
             random.seed(seed_value)
@@ -254,7 +252,7 @@ class TabularNeuralNetModel(AbstractModel):
         if setup_trainer:
             # Also setup mxboard to monitor training if visualizer has been specified:
             visualizer = params.get('visualizer', 'none')
-            if visualizer == 'tensorboard' or visualizer == 'mxboard':
+            if visualizer in ['tensorboard', 'mxboard']:
                 try_import_mxboard()
                 from mxboard import SummaryWriter
                 self.summary_writer = SummaryWriter(logdir=self.path, flush_secs=5, verbose=False)
@@ -263,11 +261,7 @@ class TabularNeuralNetModel(AbstractModel):
         val_metric = None
         best_val_epoch = 0
         num_epochs = params['num_epochs']
-        if val_dataset is not None:
-            y_val = val_dataset.get_labels()
-        else:
-            y_val = None
-
+        y_val = val_dataset.get_labels() if val_dataset is not None else None
         if params['loss_function'] is None:
             if self.problem_type == REGRESSION:
                 params['loss_function'] = gluon.loss.L1Loss()
@@ -279,15 +273,19 @@ class TabularNeuralNetModel(AbstractModel):
         loss_func = params['loss_function']
         epochs_wo_improve = params['epochs_wo_improve']
         loss_scaling_factor = 1.0  # we divide loss by this quantity to stabilize gradients
-        loss_torescale = [key for key in self.rescale_losses if isinstance(loss_func, key)]
-        if len(loss_torescale) > 0:
+        if loss_torescale := [
+            key for key in self.rescale_losses if isinstance(loss_func, key)
+        ]:
             loss_torescale = loss_torescale[0]
             if self.rescale_losses[loss_torescale] == 'std':
                 loss_scaling_factor = np.std(train_dataset.get_labels())/5.0 + EPS  # std-dev of labels
             elif self.rescale_losses[loss_torescale] == 'var':
                 loss_scaling_factor = np.var(train_dataset.get_labels())/5.0 + EPS  # variance of labels
             else:
-                raise ValueError("Unknown loss-rescaling type %s specified for loss_func==%s" % (self.rescale_losses[loss_torescale], loss_func))
+                raise ValueError(
+                    f"Unknown loss-rescaling type {self.rescale_losses[loss_torescale]} specified for loss_func=={loss_func}"
+                )
+
 
         if self.verbosity <= 1:
             verbose_eval = -1  # Print losses every verbose epochs, Never if -1
@@ -322,7 +320,7 @@ class TabularNeuralNetModel(AbstractModel):
                 logger.log(15, "Neural network architecture:")
                 logger.log(15, str(self.model))  # TODO: remove?
             cumulative_loss = 0
-            for batch_idx, data_batch in enumerate(train_dataset.dataloader):
+            for data_batch in train_dataset.dataloader:
                 data_batch = train_dataset.format_batch_data(data_batch, self.ctx)
                 with autograd.record():
                     output = self.model(data_batch)
@@ -337,30 +335,33 @@ class TabularNeuralNetModel(AbstractModel):
                 # val_metric = self.evaluate_metric(test_dataset)  # Evaluate after each epoch
                 val_metric = self.score(X=val_dataset, y=y_val, eval_metric=self.stopping_metric, metric_needs_y_pred=self.stopping_metric_needs_y_pred)
             if (val_dataset is None) or (val_metric >= best_val_metric) or (e == 0):  # keep training if score has improved
-                if val_dataset is not None:
-                    if not np.isnan(val_metric):
-                        best_val_metric = val_metric
+                if val_dataset is not None and not np.isnan(val_metric):
+                    best_val_metric = val_metric
                 best_val_epoch = e
                 # Until functionality is added to restart training from a particular epoch, there is no point in saving params without test_dataset
                 if val_dataset is not None:
                     self.model.save_parameters(net_filename)
             if val_dataset is not None:
                 if verbose_eval > 0 and e % verbose_eval == 0:
-                    logger.log(15, "Epoch %s.  Train loss: %s, Val %s: %s" %
-                      (e, train_loss.asscalar(), self.eval_metric_name, val_metric))
+                    logger.log(
+                        15,
+                        f"Epoch {e}.  Train loss: {train_loss.asscalar()}, Val {self.eval_metric_name}: {val_metric}",
+                    )
+
                 if self.summary_writer is not None:
                     self.summary_writer.add_scalar(tag='val_'+self.eval_metric_name,
                                                    value=val_metric, global_step=e)
-            else:
-                if verbose_eval > 0 and e % verbose_eval == 0:
-                    logger.log(15, "Epoch %s.  Train loss: %s" % (e, train_loss.asscalar()))
+            elif verbose_eval > 0 and e % verbose_eval == 0:
+                logger.log(15, f"Epoch {e}.  Train loss: {train_loss.asscalar()}")
             if self.summary_writer is not None:
                 self.summary_writer.add_scalar(tag='train_loss', value=train_loss.asscalar(), global_step=e)  # TODO: do we want to keep mxboard support?
-            if reporter is not None:
-                # TODO: Ensure reporter/scheduler properly handle None/nan values after refactor
-                if val_dataset is not None and (not np.isnan(val_metric)):  # TODO: This might work without the if statement
-                    # epoch must be number of epochs done (starting at 1)
-                    reporter(epoch=e+1, validation_performance=val_metric, train_loss=float(train_loss.asscalar()))  # Higher val_metric = better
+            if (
+                reporter is not None
+                and val_dataset is not None
+                and (not np.isnan(val_metric))
+            ):
+                # epoch must be number of epochs done (starting at 1)
+                reporter(epoch=e+1, validation_performance=val_metric, train_loss=float(train_loss.asscalar()))  # Higher val_metric = better
             if e - best_val_epoch > epochs_wo_improve:
                 break
             if time_limit:
@@ -401,9 +402,11 @@ class TabularNeuralNetModel(AbstractModel):
                 X = self.preprocess(X)
             return self._predict_tabular_data(new_data=X, process=True, predict_proba=True)
         else:
-            raise ValueError("X must be of type pd.DataFrame or TabularNNDataset, not type: %s" % type(X))
+            raise ValueError(
+                f"X must be of type pd.DataFrame or TabularNNDataset, not type: {type(X)}"
+            )
 
-    def _predict_tabular_data(self, new_data, process=True, predict_proba=True):  # TODO ensure API lines up with tabular.Model class.
+    def _predict_tabular_data(self, new_data, process=True, predict_proba=True):    # TODO ensure API lines up with tabular.Model class.
         """ Specific TabularNN method to produce predictions on new (unprocessed) data.
             Returns 1D numpy array unless predict_proba=True and task is multi-class classification (not binary).
             Args:
@@ -426,15 +429,17 @@ class TabularNeuralNetModel(AbstractModel):
             preds_batch = self.model(data_batch)
             batch_size = len(preds_batch)
             if self.problem_type != REGRESSION:
-                if not predict_proba: # need to take argmax
-                    preds_batch = nd.argmax(preds_batch, axis=1, keepdims=True)
-                else: # need to take softmax
-                    preds_batch = nd.softmax(preds_batch, axis=1)
+                preds_batch = (
+                    nd.softmax(preds_batch, axis=1)
+                    if predict_proba
+                    else nd.argmax(preds_batch, axis=1, keepdims=True)
+                )
+
             preds[i:(i+batch_size)] = preds_batch
             i = i+batch_size
         if self.problem_type == REGRESSION or not predict_proba:
             return preds.asnumpy().flatten()  # return 1D numpy array
-        elif self.problem_type == BINARY and predict_proba:
+        elif self.problem_type == BINARY:
             return preds[:,1].asnumpy()  # for binary problems, only return P(Y==+1)
 
         return preds.asnumpy()  # return 2D numpy array
@@ -456,14 +461,13 @@ class TabularNeuralNetModel(AbstractModel):
                 df=X_train, labels=y_train, batch_size=self.batch_size, num_dataloading_workers=self.num_dataloading_workers,
                 impute_strategy=impute_strategy, max_category_levels=max_category_levels, skew_threshold=skew_threshold, embed_min_categories=embed_min_categories, use_ngram_features=use_ngram_features,
             )
-        if X_val is not None:
-            if isinstance(X_val, TabularNNDataset):
-                val_dataset = X_val
-            else:
-                X_val = self.preprocess(X_val)
-                val_dataset = self.process_test_data(df=X_val, labels=y_val, batch_size=self.batch_size, num_dataloading_workers=self.num_dataloading_workers_inference)
-        else:
+        if X_val is None:
             val_dataset = None
+        elif isinstance(X_val, TabularNNDataset):
+            val_dataset = X_val
+        else:
+            X_val = self.preprocess(X_val)
+            val_dataset = self.process_test_data(df=X_val, labels=y_val, batch_size=self.batch_size, num_dataloading_workers=self.num_dataloading_workers_inference)
         return train_dataset, val_dataset
 
     def process_test_data(self, df, batch_size, num_dataloading_workers, labels=None):
@@ -558,7 +562,7 @@ class TabularNeuralNetModel(AbstractModel):
         elif params['optimizer'] == 'adam':  # TODO: Can we try AdamW?
             optimizer = gluon.Trainer(self.model.collect_params(), 'adam', optimizer_opts)
         else:
-            raise ValueError("Unknown optimizer specified: %s" % params['optimizer'])
+            raise ValueError(f"Unknown optimizer specified: {params['optimizer']}")
         return optimizer
 
     @staticmethod
@@ -611,7 +615,7 @@ class TabularNeuralNetModel(AbstractModel):
 
     def _get_feature_arraycol_map(self, max_category_levels):
         """ Returns OrderedDict of feature-name -> list of column-indices in processed data array corresponding to this feature """
-        feature_preserving_transforms = set(['continuous','skewed', 'ordinal', 'language']) # these transforms do not alter dimensionality of feature
+        feature_preserving_transforms = {'continuous', 'skewed', 'ordinal', 'language'}
         feature_arraycol_map = {} # unordered version
         current_colindex = 0
         for transformer in self.processor.transformers_:
@@ -620,7 +624,10 @@ class TabularNeuralNetModel(AbstractModel):
             if transformer_name in feature_preserving_transforms:
                 for feature in transformed_features:
                     if feature in feature_arraycol_map:
-                        raise ValueError("same feature is processed by two different column transformers: %s" % feature)
+                        raise ValueError(
+                            f"same feature is processed by two different column transformers: {feature}"
+                        )
+
                     feature_arraycol_map[feature] = [current_colindex]
                     current_colindex += 1
             elif transformer_name == 'onehot':
@@ -628,13 +635,16 @@ class TabularNeuralNetModel(AbstractModel):
                 for i in range(len(transformed_features)):
                     feature = transformed_features[i]
                     if feature in feature_arraycol_map:
-                        raise ValueError("same feature is processed by two different column transformers: %s" % feature)
+                        raise ValueError(
+                            f"same feature is processed by two different column transformers: {feature}"
+                        )
+
                     oh_dimensionality = min(len(oh_encoder.categories_[i]), max_category_levels+1)
                     # print("feature: %s, oh_dimensionality: %s" % (feature, oh_dimensionality)) # TODO! debug
                     feature_arraycol_map[feature] = list(range(current_colindex, current_colindex+oh_dimensionality))
                     current_colindex += oh_dimensionality
             else:
-                raise ValueError("unknown transformer encountered: %s" % transformer_name)
+                raise ValueError(f"unknown transformer encountered: {transformer_name}")
         if set(feature_arraycol_map.keys()) != set(self.features):
             raise ValueError("failed to account for all features when determining column indices in processed array")
         return OrderedDict([(key, feature_arraycol_map[key]) for key in feature_arraycol_map])
@@ -769,7 +779,7 @@ class TabularNeuralNetModel(AbstractModel):
             logger.log(15, "Hyperparameter search space for Neural Network: ")
             for hyperparam in params_copy:
                 if isinstance(params_copy[hyperparam], Space):
-                    logger.log(15, str(hyperparam)+ ":   "+str(params_copy[hyperparam]))
+                    logger.log(15, f"{str(hyperparam)}:   {str(params_copy[hyperparam])}")
 
         util_args = dict(
             train_path=train_path,

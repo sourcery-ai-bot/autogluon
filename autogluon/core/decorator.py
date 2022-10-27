@@ -32,9 +32,7 @@ def sample_config(args, config):
             if isinstance(v, NestedSpace):
                 sub_config = _strip_config_space(config, prefix=k)
                 args_dict[k] = v.sample(**sub_config)
-            else:
-                if SPLITTER in k:
-                    continue
+            elif SPLITTER not in k:
                 args_dict[k] = config[k]
         elif isinstance(v, AutoGluonObject):
             args_dict[k] = v.init()
@@ -75,13 +73,11 @@ class _autogluon_method(object):
         """
         self.kwvars.update(kwargs)
         for k, v in self.kwvars.items():
-            if isinstance(v, (NestedSpace)):
+            if isinstance(v, (NestedSpace)) or not isinstance(v, Space):
                 self.args.update({k: v})
-            elif isinstance(v, Space):
+            else:
                 hp = v.get_hp(name=k)
                 self.args.update({k: hp.default_value})
-            else:
-                self.args.update({k: v})
 
     @property
     def cs(self):
@@ -104,9 +100,9 @@ class _autogluon_method(object):
         for k, v in self.kwvars.items():
             if isinstance(v, NestedSpace):
                 if isinstance(v, Categorical):
-                    kw_spaces['{}{}choice'.format(k, SPLITTER)] = v
+                    kw_spaces[f'{k}{SPLITTER}choice'] = v
                 for sub_k, sub_v in v.kwspaces.items():
-                    new_k = '{}{}{}'.format(k, SPLITTER, sub_k)
+                    new_k = f'{k}{SPLITTER}{sub_k}'
                     kw_spaces[new_k] = sub_v
             elif isinstance(v, Space):
                 kw_spaces[k] = v
@@ -134,7 +130,7 @@ def args(default=None, **kwvars):
     ...     print('Batch size is {}, LR is {}'.format(args.batch_size, arg.lr))
     """
     if default is None:
-        default = dict()
+        default = {}
     kwvars['_default_config'] = default
     def registered_func(func):
         @_autogluon_method
@@ -263,6 +259,9 @@ def obj(**kwvars):
         return registered_func
 
     def registered_class(Cls):
+
+
+
         class autogluonobject(AutoGluonObject):
             @_autogluon_kwargs_obj(**kwvars)
             def __init__(self, *args, **kwargs):
@@ -284,7 +283,8 @@ def obj(**kwvars):
                 return Cls(*args, **kwargs)
 
             def __repr__(self):
-                return 'AutoGluonObject -- ' + Cls.__name__
+                return f'AutoGluonObject -- {Cls.__name__}'
+
 
         autogluonobject.kwvars = autogluonobject.__init__.kwvars
         autogluonobject.__doc__ = Cls.__doc__

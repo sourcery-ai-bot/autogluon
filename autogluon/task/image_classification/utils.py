@@ -36,12 +36,17 @@ def get_data_loader(dataset, input_size, batch_size, num_workers, final_fit, spl
             train_dataset, batch_size=batch_size, shuffle=True,
             last_batch="discard", num_workers=num_workers
         )
-        val_data = None
-        if not final_fit:
-            val_data = DataLoader(
-                val_dataset, batch_size=batch_size,
-                shuffle=False, num_workers=num_workers
+        val_data = (
+            None
+            if final_fit
+            else DataLoader(
+                val_dataset,
+                batch_size=batch_size,
+                shuffle=False,
+                num_workers=num_workers,
             )
+        )
+
         batch_fn = default_batch_fn
         num_batches = len(train_data)
     return train_data, val_data, batch_fn, num_batches
@@ -80,11 +85,12 @@ def mixup_transform(label, classes, lam=1, eta=0.0):
 def smooth(label, classes, eta=0.1):
     if isinstance(label, nd.NDArray):
         label = [label]
-    smoothed = [
-        l.one_hot(classes, on_value=1 - eta + eta / classes, off_value=eta / classes)
+    return [
+        l.one_hot(
+            classes, on_value=1 - eta + eta / classes, off_value=eta / classes
+        )
         for l in label
     ]
-    return smoothed
 
 
 def default_train_fn(epoch, num_epochs, net, batch, batch_size, criterion, trainer, batch_fn, ctx,
@@ -97,10 +103,7 @@ def default_train_fn(epoch, num_epochs, net, batch, batch_size, criterion, train
         if epoch >= num_epochs - mixup_off_epoch:
             lam = 1
         data = [lam * X + (1 - lam) * X[::-1] for X in data]
-        if label_smoothing:
-            eta = 0.1
-        else:
-            eta = 0.0
+        eta = 0.1 if label_smoothing else 0.0
         label = mixup_transform(label, classes, lam, eta)
     elif label_smoothing:
         hard_label = label
@@ -124,21 +127,19 @@ def default_train_fn(epoch, num_epochs, net, batch, batch_size, criterion, train
         l.backward()
     trainer.step(batch_size, ignore_stale_grad=True)
 
-    if metric:
-        if mixup:
-            output_softmax = [
-                nd.SoftmaxActivation(out.astype('float32', copy=False))
-                for out in outputs
-            ]
-            metric.update(label, output_softmax)
-        else:
-            if label_smoothing:
-                metric.update(hard_label, outputs)
-            else:
-                metric.update(label, outputs)
-        return metric
-    else:
+    if not metric:
         return
+    if mixup:
+        output_softmax = [
+            nd.SoftmaxActivation(out.astype('float32', copy=False))
+            for out in outputs
+        ]
+        metric.update(label, output_softmax)
+    elif label_smoothing:
+        metric.update(hard_label, outputs)
+    else:
+        metric.update(label, outputs)
+    return metric
 
 
 def _train_val_split(train_dataset, split_ratio=0.2):

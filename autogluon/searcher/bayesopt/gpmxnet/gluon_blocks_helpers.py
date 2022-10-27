@@ -44,9 +44,11 @@ class ConstantPositiveVector(gluon.HybridBlock):
             init_val_int = encoding.init_val_int
             # Note: The initialization values are bogus!
             self.param_internal = self.params.get(
-                param_name + '_internal',
+                f'{param_name}_internal',
                 init=mx.init.Constant(init_val_int),
-                shape=(1,), dtype=DATA_TYPE)
+                shape=(1,),
+                dtype=DATA_TYPE,
+            )
 
     def hybrid_forward(self, F, features, param_internal):
         """Returns constant positive vector
@@ -81,7 +83,7 @@ class ConstantPositiveVector(gluon.HybridBlock):
             self.param_internal)
 
     def log_parameters(self):
-        return '{} = {}'.format(self.param_name, self.get())
+        return f'{self.param_name} = {self.get()}'
 
     def get_parameters(self):
         return {self.param_name: self.get()}
@@ -207,18 +209,15 @@ class ScalarEncodingBase(object):
                 assert init_val <= constr_upper
             if constr_lower is not None:
                 assert constr_lower <= init_val
+        elif constr_lower is None:
+            init_val = 0.9 * constr_upper if constr_upper is not None else 1.0
         else:
-            # Just pick some value which is feasible
-            if constr_lower is not None:
-                if constr_upper is not None:
-                    init_val = 0.5 * (constr_upper + constr_lower)
-                else:
-                    init_val = 1.1 * constr_lower
-            else:
-                if constr_upper is not None:
-                    init_val = 0.9 * constr_upper
-                else:
-                    init_val = 1.0
+            init_val = (
+                0.5 * (constr_upper + constr_lower)
+                if constr_upper is not None
+                else 1.1 * constr_lower
+            )
+
         return init_val
 
 
@@ -259,9 +258,7 @@ class PositiveScalarEncoding(ScalarEncodingBase):
             param_internal, act_type='softrelu') + self.lower
 
     def decode(self, val, name):
-        assert val > self.lower, \
-            '{} = {} must be > self.lower = {}'.format(
-                name, val, self.lower)
+        assert val > self.lower, f'{name} = {val} must be > self.lower = {self.lower}'
         # Inverse of encoding: Careful with numerics:
         # val_int = log(exp(arg) - 1) = arg + log(1 - exp(-arg))
         #         = arg + log1p(-exp(-arg))
@@ -317,8 +314,7 @@ class LogarithmScalarEncoding(ScalarEncodingBase):
         return F.exp(param_internal)
 
     def decode(self, val, name):
-        assert val > 0.0, \
-            '{} = {} must be positive'.format(name, val)
+        assert val > 0.0, f'{name} = {val} must be positive'
         return np.log(np.maximum(val, 1e-15))
 
 
@@ -327,12 +323,10 @@ class LogarithmScalarEncoding(ScalarEncodingBase):
 
 def unwrap_parameter(F, param_internal, some_arg=None):
     assert isinstance(param_internal, mx.gluon.Parameter)
-    if mxnet_is_ndarray(F):
-        ctx = some_arg.context if some_arg is not None else mx.cpu()
-        val = param_internal.data(ctx=ctx)
-    else:
-        val = param_internal.var()
-    return val
+    if not mxnet_is_ndarray(F):
+        return param_internal.var()
+    ctx = some_arg.context if some_arg is not None else mx.cpu()
+    return param_internal.data(ctx=ctx)
 
 
 def encode_unwrap_parameter(F, param_internal, encoding, some_arg=None):

@@ -202,12 +202,7 @@ class ObjectDetection(BaseTask):
         >>>                     time_limits = 600, ngpus_per_trial = 1, num_trials = 1)
         """
         assert search_strategy not in {'bayesopt', 'bayesopt_hyperband'}, \
-            "search_strategy == 'bayesopt' or 'bayesopt_hyperband' not yet supported"
-        if auto_search:
-            # The strategies can be injected here, for example: automatic suggest some hps
-            # based on the dataset statistics
-            pass
-
+                "search_strategy == 'bayesopt' or 'bayesopt_hyperband' not yet supported"
         nthreads_per_trial = get_cpu_count() if nthreads_per_trial > get_cpu_count() else nthreads_per_trial
         if ngpus_per_trial > get_gpu_count():
             logger.warning(
@@ -268,7 +263,7 @@ class ObjectDetection(BaseTask):
                 scheduler_options = {'grace_period': grace_period}
             else:
                 assert 'grace_period' not in scheduler_options, \
-                    "grace_period appears both in scheduler_options and as direct argument"
+                        "grace_period appears both in scheduler_options and as direct argument"
                 scheduler_options = copy.copy(scheduler_options)
                 scheduler_options['grace_period'] = grace_period
             logger.warning(
@@ -293,7 +288,7 @@ class ObjectDetection(BaseTask):
             train_object_detection, search_strategy, scheduler_options)
         logger.info(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> finish model fitting")
         args = sample_config(train_object_detection.args, results['best_config'])
-        logger.info('The best config: {}'.format(results['best_config']))
+        logger.info(f"The best config: {results['best_config']}")
 
         ctx = [mx.gpu(i) for i in range(get_gpu_count())]
         model = get_network(args.meta_arch, args.net, dataset.init().get_classes(), transfer, ctx,

@@ -53,14 +53,14 @@ def _LoadNvmlLibrary():
     Load the library if it isn't loaded already
     '''
     global cudaLib
-    
+
     ret = True
-    if (cudaLib == None):
+    if cudaLib is None:
         # lock to ensure only one caller loads the library
         libLoadLock.acquire()
         try:
             # ensure the library still isn't loaded
-            if (cudaLib == None):
+            if cudaLib is None:
                 try:
                     if (sys.platform[:3] == "win"):
                         # cdecl calling convention
@@ -72,8 +72,8 @@ def _LoadNvmlLibrary():
                 except OSError as ose:
                     pass
 
-                if (cudaLib == None):
-                    ret = False
+            if cudaLib is None:
+                ret = False
         finally:
             # lock is always freed
             libLoadLock.release()
@@ -88,17 +88,17 @@ def cudaSystemGetNVMLVersion():
     return c_version.value.decode('UTF-8')
 
 ## Function access ##
-_cudaGetFunctionPointer_cache = dict() # function pointers are cached to prevent unnecessary libLoadLock locking
+_cudaGetFunctionPointer_cache = {}
 def _cudaGetFunctionPointer(name):
     global cudaLib
 
     if name in _cudaGetFunctionPointer_cache:
         return _cudaGetFunctionPointer_cache[name]
-    
+
     libLoadLock.acquire()
     try:
         # ensure library was loaded
-        if (cudaLib == None):
+        if cudaLib is None:
             raise NVMLError(NVML_ERROR_UNINITIALIZED)
         try:
             _cudaGetFunctionPointer_cache[name] = getattr(cudaLib, name)
@@ -121,14 +121,14 @@ class NVMLError(Exception):
         NVML_ERROR_UNINITIALIZED:       "Uninitialized",
         NVML_ERROR_LIBRARY_NOT_FOUND:   "NVML Shared Library Not Found",
         }
-    def __new__(typ, value):
+    def __new__(cls, value):
         '''
         Maps value to a proper subclass of NVMLError.
         See _extractNVMLErrorsAsClasses function for more details
         '''
-        if typ == NVMLError:
-            typ = NVMLError._valClassMapping.get(value, typ)
-        obj = Exception.__new__(typ)
+        if cls == NVMLError:
+            cls = NVMLError._valClassMapping.get(value, cls)
+        obj = Exception.__new__(cls)
         obj.value = value
         return obj
 
@@ -150,11 +150,11 @@ def cudaShutdown():
     fn = _cudaGetFunctionPointer("nvmlShutdown")
     ret = fn()
     _cudaCheckReturn(ret)
-    
+
     # Atomically update refcount
     global _cudaLib_refcount
     libLoadLock.acquire()
-    if (0 < _cudaLib_refcount):
+    if _cudaLib_refcount > 0:
         _cudaLib_refcount -= 1
     libLoadLock.release()
     return None

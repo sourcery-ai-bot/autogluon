@@ -67,10 +67,10 @@ class SkipPeriodicallyPredicate(SkipOptimizationPredicate):
 
     def __call__(self, state: TuningJobState) -> bool:
         num_labeled = len(state.candidate_evaluations)
-        assert self.lastrec_key is None or \
-            num_labeled >= self.lastrec_key, \
-            "num_labeled = {} < {} = lastrec_key".format(
-                num_labeled, self.lastrec_key)
+        assert (
+            self.lastrec_key is None or num_labeled >= self.lastrec_key
+        ), f"num_labeled = {num_labeled} < {self.lastrec_key} = lastrec_key"
+
         # self.lastrec_XYZ is needed in order to allow __call__
         # to be called several times with the same num_labeled
         if num_labeled == self.lastrec_key:
@@ -82,7 +82,7 @@ class SkipPeriodicallyPredicate(SkipOptimizationPredicate):
             # optimization
             # Smallest init_length + k*period > num_labeled:
             self.current_bound = num_labeled + self.period -\
-                ((num_labeled - self.init_length) % self.period)
+                    ((num_labeled - self.init_length) % self.period)
             ret_value = False
         self.lastrec_key = num_labeled
         self.lastrec_value = ret_value
@@ -117,7 +117,7 @@ class SkipNoMaxResourcePredicate(SkipOptimizationPredicate):
     def _num_max_resource_cases(self, state: TuningJobState):
         def is_max_resource(config: Candidate) -> int:
             if isinstance(config, CS.Configuration) and \
-                    (config.get_dictionary()[self.resource_attr_name] ==
+                        (config.get_dictionary()[self.resource_attr_name] ==
                      self.max_resource):
                 return 1
             else:
@@ -131,7 +131,7 @@ class SkipNoMaxResourcePredicate(SkipOptimizationPredicate):
             return False
         num_max_resource_cases = self._num_max_resource_cases(state)
         if self.lastrec_max_resource_cases is None or \
-                num_max_resource_cases > self.lastrec_max_resource_cases:
+                    num_max_resource_cases > self.lastrec_max_resource_cases:
             self.lastrec_max_resource_cases = num_max_resource_cases
             return False
         else:

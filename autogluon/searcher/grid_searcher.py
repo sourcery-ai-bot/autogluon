@@ -29,12 +29,14 @@ class GridSearcher(BaseSearcher):
         for hp in hp_ordering:
             hp_obj = configspace.get_hyperparameter(hp)
             hp_type = str(type(hp_obj)).lower()
-            assert 'categorical' in hp_type, \
-                'Only Categorical is supported, but {} is {}'.format(hp, hp_type)
+            assert (
+                'categorical' in hp_type
+            ), f'Only Categorical is supported, but {hp} is {hp_type}'
+
             param_grid[hp] = hp_obj.choices
 
         self._configs = list(ParameterGrid(param_grid))
-        print('Number of configurations for grid search is {}'.format(len(self._configs)))
+        print(f'Number of configurations for grid search is {len(self._configs)}')
 
     def __len__(self):
         return len(self._configs)

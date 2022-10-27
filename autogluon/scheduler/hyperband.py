@@ -211,16 +211,16 @@ class HyperbandScheduler(FIFOScheduler):
         # exception
         inferred_max_t = self._infer_max_t(train_fn.args)
         max_t = kwargs.get('max_t')
-        if max_t is not None:
-            if inferred_max_t is not None and max_t != inferred_max_t:
-                logger.warning(
-                    "max_t = {} is different from the value {} inferred from train_fn.args (train_fn.args.epochs, train_fn.args.max_t)".format(max_t, inferred_max_t))
-        else:
+        if max_t is None:
             assert inferred_max_t is not None, \
-                "Either max_t must be specified, or it has to be specified via train_fn (as train_fn.args.epochs or train_fn.args.max_t)"
-            logger.info("max_t = {}, as inferred from train_fn.args".format(
-                inferred_max_t))
+                    "Either max_t must be specified, or it has to be specified via train_fn (as train_fn.args.epochs or train_fn.args.max_t)"
+            logger.info(f"max_t = {inferred_max_t}, as inferred from train_fn.args")
             max_t = inferred_max_t
+        elif inferred_max_t is not None and max_t != inferred_max_t:
+            logger.warning(
+                f"max_t = {max_t} is different from the value {inferred_max_t} inferred from train_fn.args (train_fn.args.epochs, train_fn.args.max_t)"
+            )
+
         # Check values and impute default values (only for arguments new to
         # this class)
         kwargs = check_and_merge_defaults(
@@ -235,11 +235,8 @@ class HyperbandScheduler(FIFOScheduler):
 
         # Adjoin information about scheduler to search_options
         search_options = kwargs.get('search_options')
-        if search_options is None:
-            _search_options = dict()
-        else:
-            _search_options = search_options.copy()
-        _search_options['scheduler'] = 'hyperband_{}'.format(type)
+        _search_options = {} if search_options is None else search_options.copy()
+        _search_options['scheduler'] = f'hyperband_{type}'
         _search_options['min_epochs'] = grace_period
         _search_options['max_epochs'] = max_t
         kwargs['search_options'] = _search_options
@@ -259,15 +256,16 @@ class HyperbandScheduler(FIFOScheduler):
                 reduction_factor, brackets)
         elif type == 'promotion':
             assert not do_snapshots, \
-                "Snapshots are supported only for type = 'stopping'"
+                    "Snapshots are supported only for type = 'stopping'"
             self.terminator = HyperbandPromotion_Manager(
                 self._time_attr, self._reward_attr, max_t, grace_period,
                 reduction_factor, brackets,
                 keep_size_ratios=kwargs['keep_size_ratios'])
         else:
             raise AssertionError(
-                "type '{}' not supported, must be 'stopping' or 'promotion'".format(
-                    type))
+                f"type '{type}' not supported, must be 'stopping' or 'promotion'"
+            )
+
         self.do_snapshots = do_snapshots
         self.searcher_data = kwargs['searcher_data']
         # Maintains a snapshot of currently running tasks, needed by several
@@ -283,14 +281,14 @@ class HyperbandScheduler(FIFOScheduler):
         #       self._time_attr).
         # - bracket: Bracket number
         # - keep_case: See _run_reporter
-        self._running_tasks = dict()
+        self._running_tasks = {}
         # This lock protects both _running_tasks and terminator, the latter
         # does not define its own lock
         self._hyperband_lock = mp.Lock()
         if resume:
             checkpoint = kwargs.get('checkpoint')
             assert checkpoint is not None, \
-                "Need checkpoint to be set if resume = True"
+                    "Need checkpoint to be set if resume = True"
             if os.path.isfile(checkpoint):
                 self.load_state_dict(load(checkpoint))
             else:
@@ -334,8 +332,10 @@ class HyperbandScheduler(FIFOScheduler):
         # Register task
         task_key = str(task.task_id)
         with self._hyperband_lock:
-            assert task_key not in self._running_tasks, \
-                "Task {} is already registered as running".format(task_key)
+            assert (
+                task_key not in self._running_tasks
+            ), f"Task {task_key} is already registered as running"
+
             self._running_tasks[task_key] = {
                 'config': task.args['config'],
                 'time_stamp': kwargs['elapsed_time'],
@@ -345,8 +345,7 @@ class HyperbandScheduler(FIFOScheduler):
             milestones = self.terminator.on_task_add(task, **kwargs)
         if kwargs.get('new_config', True):
             first_milestone = milestones[-1]
-            logger.debug("Adding new task (first milestone = {}):\n{}".format(
-                first_milestone, task))
+            logger.debug(f"Adding new task (first milestone = {first_milestone}):\n{task}")
             self.searcher.register_pending(
                 task.args['config'], milestone=first_milestone)
             if self.maxt_pending:
@@ -361,8 +360,7 @@ class HyperbandScheduler(FIFOScheduler):
             # pause and resume:
             task.args['resume_from'] = kwargs['resume_from']
             next_milestone = kwargs['milestone']
-            logger.debug("Promotion task (next milestone = {}):\n{}".format(
-                next_milestone, task))
+            logger.debug(f"Promotion task (next milestone = {next_milestone}):\n{task}")
             self.searcher.register_pending(
                 task.args['config'], milestone=next_milestone)
 
@@ -379,7 +377,7 @@ class HyperbandScheduler(FIFOScheduler):
         # Checkpoint thread. This is also used for training_history
         # callback
         if self._checkpoint is not None or \
-                self.training_history_callback is not None:
+                    self.training_history_callback is not None:
             self._add_checkpointing_to_job(job)
         with self.LOCK:
             self.scheduled_tasks.append(task_dict)
@@ -389,12 +387,12 @@ class HyperbandScheduler(FIFOScheduler):
         if self.searcher_data == 'rungs_and_last':
             with self._hyperband_lock:
                 task_info = self._running_tasks[str(task.task_id)]
-                if task_info['reported_result'] is not None:
-                    # Remove last recently added result for this task,
-                    # unless it fell on a rung level
-                    if not task_info['keep_case']:
-                        rem_result = task_info['reported_result']
-                        self.searcher.remove_case(config, **rem_result)
+                if (
+                    task_info['reported_result'] is not None
+                    and not task_info['keep_case']
+                ):
+                    rem_result = task_info['reported_result']
+                    self.searcher.remove_case(config, **rem_result)
         self.searcher.update(config, **result)
 
     def _run_reporter(self, task, task_job, reporter):
@@ -440,15 +438,15 @@ class HyperbandScheduler(FIFOScheduler):
             reported_result['bracket'] = task_info['bracket_id']
             if 'rung_counts' in task_info:
                 for k, v in task_info['rung_counts'].items():
-                    key = 'count_at_{}'.format(k)
+                    key = f'count_at_{k}'
                     reported_result[key] = v
             dataset_size = self.searcher.dataset_size()
             if dataset_size > 0:
                 reported_result['searcher_data_size'] = dataset_size
             for k, v in self.searcher.cumulative_profile_record().items():
-                reported_result['searcher_profile_' + k] = v
+                reported_result[f'searcher_profile_{k}'] = v
             for k, v in self.searcher.model_parameters().items():
-                reported_result['searcher_params_' + k] = v
+                reported_result[f'searcher_params_{k}'] = v
             self._add_training_result(
                 task.task_id, reported_result, config=task.args['config'])
 
@@ -479,7 +477,8 @@ class HyperbandScheduler(FIFOScheduler):
                 if task_continues:
                     self.searcher.register_pending(
                         task.args['config'],
-                        milestone=int(reported_result[self._time_attr]) + 1)
+                        milestone=int(last_updated[self._time_attr]) + 1,
+                    )
 
             # Change snapshot entry for task
             # Note: This must not be done above, because what _update_searcher
@@ -506,10 +505,9 @@ class HyperbandScheduler(FIFOScheduler):
                     config_id = debug_log.config_id(task.args['config'])
                     milestone = int(reported_result[self._time_attr])
                     next_milestone = task_info['next_milestone']
-                    msg = "config_id {}: Reaches {}, continues".format(
-                        config_id, milestone)
+                    msg = f"config_id {config_id}: Reaches {milestone}, continues"
                     if next_milestone is not None:
-                        msg += " to {}".format(next_milestone)
+                        msg += f" to {next_milestone}"
                     logger.info(msg)
                 reporter.move_on()
             else:
@@ -526,8 +524,7 @@ class HyperbandScheduler(FIFOScheduler):
                         act_str = 'Terminating'
                     else:
                         act_str = 'Pausing'
-                    msg = "config_id {}: {} evaluation at {}".format(
-                        config_id, act_str, resource)
+                    msg = f"config_id {config_id}: {act_str} evaluation at {resource}"
                     logger.info(msg)
                 with self._hyperband_lock:
                     self.terminator.on_task_remove(task)
@@ -566,12 +563,12 @@ class HyperbandScheduler(FIFOScheduler):
         """
         with self._hyperband_lock:
             assert len(self._running_tasks) == 0, \
-                "load_state_dict must only be called as part of scheduler construction"
+                    "load_state_dict must only be called as part of scheduler construction"
             super().load_state_dict(state_dict)
             # Note: _running_tasks is empty from __init__, it is not recreated,
             # since running tasks are not part of the checkpoint
             self.terminator = pickle.loads(state_dict['terminator'])
-            logger.info('Loading Terminator State {}'.format(self.terminator))
+            logger.info(f'Loading Terminator State {self.terminator}')
 
     def _snapshot_tasks(self, bracket_id):
         return {
@@ -609,9 +606,8 @@ class HyperbandScheduler(FIFOScheduler):
             if (debug_log is not None) and (config is not None):
                 # Debug log output
                 config_id = debug_log.config_id(config)
-                msg = "config_id {}: Promotion from {} to {}".format(
-                    config_id, extra_kwargs['resume_from'],
-                    extra_kwargs['milestone'])
+                msg = f"config_id {config_id}: Promotion from {extra_kwargs['resume_from']} to {extra_kwargs['milestone']}"
+
                 logger.info(msg)
             return config, extra_kwargs
 
@@ -624,6 +620,4 @@ class HyperbandScheduler(FIFOScheduler):
         return fun
 
     def __repr__(self):
-        reprstr = self.__class__.__name__ + '(' +  \
-            'terminator: ' + str(self.terminator)
-        return reprstr
+        return f'{self.__class__.__name__}(terminator: {str(self.terminator)}'

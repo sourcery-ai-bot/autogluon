@@ -66,7 +66,7 @@ class Remote(Client):
         if local:
             super().__init__(processes=False)
         else:
-            remote_addr = (remote_ip + ':{}'.format(port))
+            remote_addr = f'{remote_ip}:{port}'
             self.service = start_service(remote_ip, port)
             _set_global_remote_service(self.service)
             import time
@@ -87,9 +87,7 @@ class Remote(Client):
             self.upload_file(filename, **kwargs)
 
     def __repr__(self):
-        reprstr = self.__class__.__name__ + ' REMOTE_ID: {}, \n\t'.format(self.remote_id) + \
-            super().__repr__()
-        return reprstr
+        return f'{self.__class__.__name__} REMOTE_ID: {self.remote_id}, \n\t{super().__repr__()}'
 
 class DaskRemoteService(object):
     def __init__(self, remote_addr, scheduler_port, ssh_username=None,

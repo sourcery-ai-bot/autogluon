@@ -47,7 +47,7 @@ def get_model_file(name, root=os.path.join('~', '.autogluon', 'models')):
     """
     file_name = '{name}-{short_hash}'.format(name=name, short_hash=short_hash(name))
     root = os.path.expanduser(root)
-    file_path = os.path.join(root, file_name+'.params')
+    file_path = os.path.join(root, f'{file_name}.params')
     sha1_hash = _model_sha1[name]
     if os.path.exists(file_path):
         if check_sha1(file_path, sha1_hash):
@@ -56,15 +56,15 @@ def get_model_file(name, root=os.path.join('~', '.autogluon', 'models')):
             print('Mismatch in the content of model file {} detected.' +
                   ' Downloading again.'.format(file_path))
     else:
-        print('Model file {} is not found. Downloading.'.format(file_path))
+        print(f'Model file {file_path} is not found. Downloading.')
 
     if not os.path.exists(root):
         os.makedirs(root)
 
-    zip_file_path = os.path.join(root, file_name+'.zip')
+    zip_file_path = os.path.join(root, f'{file_name}.zip')
     repo_url = os.environ.get('ENCODING_REPO', autogluon_repo_url)
     if repo_url[-1] != '/':
-        repo_url = repo_url + '/'
+        repo_url = f'{repo_url}/'
     download(_url_format.format(repo_url=repo_url, file_name=file_name),
              path=zip_file_path,
              overwrite=True)

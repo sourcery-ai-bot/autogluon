@@ -75,7 +75,7 @@ class CustomVOCDetectionBase(gdata.VOCDetection):
         ids = []
         for subfolder, name in splits:
             root = os.path.join(self._root, subfolder) if subfolder else self._root
-            lf = os.path.join(root, 'ImageSets', 'Main', name + '.txt')
+            lf = os.path.join(root, 'ImageSets', 'Main', f'{name}.txt')
             with open(lf, 'r') as f:
                 ids += [(root, line.strip()) for line in f.readlines()]
         return ids
@@ -108,7 +108,7 @@ class CustomVOCDetectionBase(gdata.VOCDetection):
             ymax = (float(xml_box.find('ymax').text) - 1)
 
             if not ((0 <= xmin < width) and (0 <= ymin < height) \
-                    and (xmin < xmax <= width) and (ymin < ymax <= height)):
+                        and (xmin < xmax <= width) and (ymin < ymax <= height)):
                 return False
 
         return True
@@ -139,11 +139,11 @@ class CustomVOCDetection():
     def __init__(self, root, splits, name, classes, **kwargs):
         super().__init__()
         self.root = root
-        
+
         # search classes from gt files for custom dataset
         if not (classes or name):
             classes = self.generate_gt() 
-        
+
         self.dataset = CustomVOCDetectionBase(classes=classes,
                                               root=root,
                                               splits=splits)

@@ -59,10 +59,12 @@ def get_rcnn_losses(args):
 def rcnn_split_and_load(batch, ctx_list):
     """Split data to 1 batch each device."""
     new_batch = []
-    for i, data in enumerate(batch):
-        if isinstance(data, (list, tuple)):
-            new_data = [x.as_in_context(ctx) for x, ctx in zip(data, ctx_list)]
-        else:
-            new_data = [data.as_in_context(ctx_list[0])]
+    for data in batch:
+        new_data = (
+            [x.as_in_context(ctx) for x, ctx in zip(data, ctx_list)]
+            if isinstance(data, (list, tuple))
+            else [data.as_in_context(ctx_list[0])]
+        )
+
         new_batch.append(new_data)
     return new_batch

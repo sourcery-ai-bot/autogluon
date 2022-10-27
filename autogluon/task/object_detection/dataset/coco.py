@@ -17,9 +17,13 @@ class COCO(DatasetBase):
         self.train_dataset = gdata.COCODetection(splits='instances_train2017')
         self.val_dataset = gdata.COCODetection(splits='instances_val2017', skip_empty=False)
         self.val_metric = COCODetectionMetric(
-                                self.val_dataset, args.save_prefix + '_eval', cleanup=True,
-                                data_shape=(args.data_shape, args.data_shape))
-        
+            self.val_dataset,
+            f'{args.save_prefix}_eval',
+            cleanup=True,
+            data_shape=(args.data_shape, args.data_shape),
+        )
+
+
         #TODO: whether to use the code below
         """
         # coco validation is slow, consider increase the validation interval

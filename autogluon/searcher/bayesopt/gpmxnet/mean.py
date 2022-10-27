@@ -117,7 +117,7 @@ class ZeroMeanFunction(MeanFunction):
         return []
 
     def get_params(self):
-        return dict()
+        return {}
 
     def set_params(self, param_dict):
         pass

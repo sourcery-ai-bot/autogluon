@@ -23,7 +23,7 @@ def sagemaker_setup():
 def _wait_for_worker_nodes_to_start_sshd(hosts, interval=1, timeout_in_seconds=180):
     with timeout(seconds=timeout_in_seconds):
         while hosts:
-            print("hosts that aren't SSHable yet: %s", str(hosts))
+            print("hosts that aren't SSHable yet: %s", hosts)
             for host in hosts:
                 ssh_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 if _can_connect(host, 22, ssh_socket):

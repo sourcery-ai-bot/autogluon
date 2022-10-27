@@ -54,7 +54,7 @@ class Ackley(object):
         ssq = (x1 ** 2) + (x2 ** 2)
         scos = np.cos(c * x1) + np.cos(c * x2)
         return -a * np.exp(-b * np.sqrt(0.5 * ssq)) - np.exp(0.5 * scos) + \
-               (a + np.exp(1))
+                   (a + np.exp(1))
 
 
 def _decode_input(x, lim):
@@ -64,9 +64,13 @@ def _decode_input(x, lim):
 
 def evaluate_blackbox(bb_func, inputs: np.ndarray) -> np.ndarray:
     num_dims = inputs.shape[1]
-    input_list = []
-    for x, lim in zip(np.split(inputs, num_dims, axis=1), bb_func.search_space):
-        input_list.append(_decode_input(x, lim))
+    input_list = [
+        _decode_input(x, lim)
+        for x, lim in zip(
+            np.split(inputs, num_dims, axis=1), bb_func.search_space
+        )
+    ]
+
     return bb_func.evaluate(*input_list)
 
 
@@ -111,7 +115,7 @@ def sample_data(
 # native ranges for candidate_evaluations
 def data_to_state(data: dict) -> TuningJobState:
     cs = CS.ConfigurationSpace()
-    cs_names = ['x{}'.format(i) for i in range(len(data['ss_limits']))]
+    cs_names = [f'x{i}' for i in range(len(data['ss_limits']))]
     cs.add_hyperparameters([
         CSH.UniformFloatHyperparameter(
             name=name, lower=lims['min'], upper=lims['max'])
@@ -168,8 +172,9 @@ def compare_gpy_predict_posterior_marginals(
     num_data = test_intermediates['features'].shape[0]
     num_dims = test_intermediates['features'].shape[1]
     lengthscales = [
-        1.0 / test_intermediates['inv_bw{}'.format(i)]
-        for i in range(num_dims)]
+        1.0 / test_intermediates[f'inv_bw{i}'] for i in range(num_dims)
+    ]
+
     kernel = GPy.kern.Matern52(
         num_dims,
         variance=test_intermediates['covariance_scale'],

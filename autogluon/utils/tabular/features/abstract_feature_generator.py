@@ -26,7 +26,7 @@ class AbstractFeatureGenerator:
         self.features_init_to_keep = []
         self.features_to_remove = []
         self.features_to_remove_post = []
-        self.features_init_types = dict()  # Initial feature types prior to transformation
+        self.features_init_types = {}
         self.feature_type_family_init_raw = defaultdict(list)  # Feature types of original features, without inferring.
         self.feature_type_family = defaultdict(list)  # Feature types of original features, after inferring.
         self.feature_type_family_generated = defaultdict(list)  # Feature types (special) of generated features.
@@ -134,9 +134,12 @@ class AbstractFeatureGenerator:
             logger.warning(f'Warning: Data size post feature transformation consumes {round(post_memory_usage_percent*100, 1)}% of available memory. Consider increasing memory or subsampling the data to avoid instability.')
 
         X_features.index = X_index
-        if len(list(X_features.columns)) == 0:
+        if not list(X_features.columns):
             self.is_dummy = True
-            logger.warning(f'WARNING: No useful features were detected in the data! AutoGluon will train using 0 features, and will always predict the same value. Ensure that you are passing the correct data to AutoGluon!')
+            logger.warning(
+                'WARNING: No useful features were detected in the data! AutoGluon will train using 0 features, and will always predict the same value. Ensure that you are passing the correct data to AutoGluon!'
+            )
+
             X_features['__dummy__'] = 0
             self.feature_type_family_generated['int'] = ['__dummy__']
 
@@ -145,7 +148,11 @@ class AbstractFeatureGenerator:
 
         self.features = list(X_features.columns)
         self.fit = True
-        logger.log(20, 'Feature Generator processed %s data points with %s features' % (X_len, len(self.features)))
+        logger.log(
+            20,
+            f'Feature Generator processed {X_len} data points with {len(self.features)} features',
+        )
+
         logger.log(20, 'Original Features (raw dtypes):')
         for key, val in self.feature_type_family_init_raw.items():
             if val: logger.log(20, '\t%s features: %s' % (key, len(val)))
@@ -174,12 +181,9 @@ class AbstractFeatureGenerator:
         X.columns = X.columns.astype(str)  # Ensure all column names are strings
         X = X.drop(self.features_to_remove, axis=1, errors='ignore')
         X_columns = X.columns.tolist()
-        # Create any columns present in the training dataset that are now missing from this dataframe:
-        missing_cols = []
-        for col in self.features_init_to_keep:
-            if col not in X_columns:
-                missing_cols.append(col)
-        if len(missing_cols) > 0:
+        if missing_cols := [
+            col for col in self.features_init_to_keep if col not in X_columns
+        ]:
             raise ValueError(f'Required columns are missing from the provided dataset. Missing columns: {missing_cols}')
 
         X = X.astype(self.features_init_types)
@@ -203,9 +207,7 @@ class AbstractFeatureGenerator:
     def bin_column(series, mapping):
         mapping_dict = {k: v for v, k in enumerate(list(mapping))}
         series_out = pd.cut(series, mapping)
-        # series_out.cat.categories = [str(g) for g in series_out.cat.categories]  # LightGBM crashes at end of training without this
-        series_out_int = [mapping_dict[val] for val in series_out]
-        return series_out_int
+        return [mapping_dict[val] for val in series_out]
 
     # TODO: Rewrite with normalized value counts as binning technique, will be more performant and optimal
     @staticmethod
@@ -236,19 +238,15 @@ class AbstractFeatureGenerator:
             max_desired_bins = min(ideal_cats, max_bins)
             min_desired_bins = min(ideal_cats, max_bins)
 
-            if (len(interval_index) >= min_desired_bins) and (len(interval_index) <= max_desired_bins):
-                is_satisfied = True
-            else:
-                is_satisfied = False
+            is_satisfied = (
+                len(interval_index) >= min_desired_bins
+                and len(interval_index) <= max_desired_bins
+            )
 
             num_cats_current = num_cats_initial
             # print(column, min_desired_bins, max_desired_bins)
             cur_iteration = 0
             while not is_satisfied:
-                if len(interval_index) > max_desired_bins:
-                    pass
-                elif len(interval_index) < min_desired_bins:
-                    pass
                 ratio_reduction = max_desired_bins / len(interval_index)
                 num_cats_current = int(np.floor(num_cats_current * ratio_reduction))
                 bin_index = [np.floor(cur_len * (num + 1) / num_cats_current) for num in range(num_cats_current - 1)]
@@ -271,10 +269,9 @@ class AbstractFeatureGenerator:
     def get_approximate_df_mem_usage(df, sample_ratio=0.2):
         if sample_ratio >= 1:
             return df.memory_usage(deep=True)
-        else:
-            num_rows = len(df)
-            num_rows_sample = math.ceil(sample_ratio * num_rows)
-            return df.head(num_rows_sample).memory_usage(deep=True) / sample_ratio
+        num_rows = len(df)
+        num_rows_sample = math.ceil(sample_ratio * num_rows)
+        return df.head(num_rows_sample).memory_usage(deep=True) / sample_ratio
 
     # TODO: Clean code
     # bins is a sorted int/float series, ascending=True
@@ -284,14 +281,22 @@ class AbstractFeatureGenerator:
         bins_2 = bins.iloc[bin_index]
         bins_3 = list(bins_2.values)
         bins_unique = sorted(list(set(bins_3)))
-        bins_with_epsilon_max = set([i for i in bins_unique] + [i - bin_epsilon for i in bins_unique if i == max_val])
-        removal_bins = set([bins_unique[index - 1] for index, i in enumerate(bins_unique[1:], start=1) if i == max_val])
+        bins_with_epsilon_max = set(
+            list(bins_unique)
+            + [i - bin_epsilon for i in bins_unique if i == max_val]
+        )
+
+        removal_bins = {
+            bins_unique[index - 1]
+            for index, i in enumerate(bins_unique[1:], start=1)
+            if i == max_val
+        }
+
         bins_4 = sorted(list(bins_with_epsilon_max - removal_bins))
         bins_5 = [np.inf if (x == max_val) else x for x in bins_4]
         bins_6 = sorted(list(set([-np.inf] + bins_5 + [np.inf])))
         bins_7 = [(bins_6[i], bins_6[i + 1]) for i in range(len(bins_6) - 1)]
-        interval_index = pd.IntervalIndex.from_tuples(bins_7)
-        return interval_index
+        return pd.IntervalIndex.from_tuples(bins_7)
 
     def get_feature_types(self, X: DataFrame):
         self.features_init = list(X.columns)
@@ -372,25 +377,34 @@ class AbstractFeatureGenerator:
             return False
         avg_words = np.mean([len(re.sub(' +', ' ', value).split(' ')) if isinstance(value, str) else 0 for value in X_unique])
         # print(avg_words)
-        if avg_words < 3:
-            return False
-
-        return True
+        return avg_words >= 3
 
     def generate_text_features(self, X: Series, feature: str) -> DataFrame:
         X: DataFrame = X.to_frame(name=feature)
-        X[feature + '.char_count'] = [self.char_count(value) for value in X[feature]]
-        X[feature + '.word_count'] = [self.word_count(value) for value in X[feature]]
-        X[feature + '.capital_ratio'] = [self.capital_ratio(value) for value in X[feature]]
-        X[feature + '.lower_ratio'] = [self.lower_ratio(value) for value in X[feature]]
-        X[feature + '.digit_ratio'] = [self.digit_ratio(value) for value in X[feature]]
-        X[feature + '.special_ratio'] = [self.special_ratio(value) for value in X[feature]]
+        X[f'{feature}.char_count'] = [self.char_count(value) for value in X[feature]]
+        X[f'{feature}.word_count'] = [self.word_count(value) for value in X[feature]]
+        X[f'{feature}.capital_ratio'] = [
+            self.capital_ratio(value) for value in X[feature]
+        ]
+
+        X[f'{feature}.lower_ratio'] = [self.lower_ratio(value) for value in X[feature]]
+        X[f'{feature}.digit_ratio'] = [self.digit_ratio(value) for value in X[feature]]
+        X[f'{feature}.special_ratio'] = [
+            self.special_ratio(value) for value in X[feature]
+        ]
+
 
         symbols = ['!', '?', '@', '%', '$', '*', '&', '#', '^', '.', ':', ' ', '/', ';', '-', '=']
         for symbol in symbols:
-            X[feature + '.symbol_count.' + symbol] = [self.symbol_in_string_count(value, symbol) for value in X[feature]]
-            X[feature + '.symbol_ratio.' + symbol] = X[feature + '.symbol_count.' + symbol] / X[feature + '.char_count']
-            X[feature + '.symbol_ratio.' + symbol].fillna(0, inplace=True)
+            X[f'{feature}.symbol_count.' + symbol] = [
+                self.symbol_in_string_count(value, symbol) for value in X[feature]
+            ]
+
+            X[f'{feature}.symbol_ratio.' + symbol] = (
+                X[f'{feature}.symbol_count.' + symbol] / X[f'{feature}.char_count']
+            )
+
+            X[f'{feature}.symbol_ratio.' + symbol].fillna(0, inplace=True)
 
         X = X.drop(feature, axis=1)
 
@@ -460,29 +474,21 @@ class AbstractFeatureGenerator:
     @staticmethod
     def digit_ratio(string):
         string = string.replace(' ', '')
-        if not string:
-            return 0
-        return sum(c.isdigit() for c in string) / len(string)
+        return sum(c.isdigit() for c in string) / len(string) if string else 0
 
     @staticmethod
     def lower_ratio(string):
         string = string.replace(' ', '')
-        if not string:
-            return 0
-        return sum(c.islower() for c in string) / len(string)
+        return sum(c.islower() for c in string) / len(string) if string else 0
 
     @staticmethod
     def capital_ratio(string):
         string = string.replace(' ', '')
-        if not string:
-            return 0
-        return sum(1 for c in string if c.isupper()) / len(string)
+        return sum(bool(c.isupper()) for c in string) / len(string) if string else 0
 
     @staticmethod
     def symbol_in_string_count(string, character):
-        if not string:
-            return 0
-        return sum(1 for c in string if c == character)
+        return sum(c == character for c in string) if string else 0
 
     # TODO: optimize by not considering columns with unique sums/means
     # TODO: Multithread?

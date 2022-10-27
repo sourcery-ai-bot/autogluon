@@ -95,7 +95,7 @@ class EmbedNet(gluon.Block): # TODO: hybridize?
             if self.has_embed_features:
                 num_categs_per_feature = architecture_desc['num_categs_per_feature']
                 embed_dims = architecture_desc['embed_dims']
-        
+
         # Define neural net parameters:
         if self.has_vector_features:
             self.numeric_block = NumericBlock(params)
@@ -111,8 +111,8 @@ class EmbedNet(gluon.Block): # TODO: hybridize?
         elif params['network_type'] == 'widedeep':
             self.output_block = WideAndDeepBlock(params, num_net_outputs)
         else:
-            raise ValueError("unknown network_type specified: %s" % params['network_type'])
-        
+            raise ValueError(f"unknown network_type specified: {params['network_type']}")
+
         y_range = params['y_range'] # Used specifically for regression. = None for classification.
         self.y_constraint = None # determines if Y-predictions should be constrained
         if y_range is not None:
@@ -130,7 +130,7 @@ class EmbedNet(gluon.Block): # TODO: hybridize?
                 self.y_lower.as_in_context(ctx)
                 self.y_upper.as_in_context(ctx)
             self.y_span = self.y_upper - self.y_lower
-        
+
         if architecture_desc is None: # Save Architecture description
             self.architecture_desc = {'has_vector_features': self.has_vector_features, 
                                   'has_embed_features': self.has_embed_features,
@@ -195,10 +195,12 @@ class EmbedNet(gluon.Block): # TODO: hybridize?
             # #    embed_activations.append(self.embed_blocks[i](embed_data[i]))
             # embed_activations = nd.concat(*embed_activations, dim=2)
             embed_activations = embed_activations.flatten()
-            if not self.has_vector_features:
-                input_activations = embed_activations
-            else:
-                input_activations = nd.concat(embed_activations, input_activations)
+            input_activations = (
+                nd.concat(embed_activations, input_activations)
+                if self.has_vector_features
+                else embed_activations
+            )
+
         if self.has_language_features:
             language_data = data_batch['language']
             language_activations = self.text_block(language_data) # TODO: create block to embed text fields
@@ -208,14 +210,13 @@ class EmbedNet(gluon.Block): # TODO: hybridize?
                 input_activations = nd.concat(language_activations, input_activations)
         if self.y_constraint is None:
             return self.output_block(input_activations)
+        unscaled_pred = self.output_block(input_activations)
+        if self.y_constraint == 'nonnegative':
+            return self.y_lower + nd.abs(unscaled_pred)
+        elif self.y_constraint == 'nonpositive':
+            return self.y_upper - nd.abs(unscaled_pred)
         else:
-            unscaled_pred = self.output_block(input_activations)
-            if self.y_constraint == 'nonnegative':
-                return self.y_lower + nd.abs(unscaled_pred)
-            elif self.y_constraint == 'nonpositive':
-                return self.y_upper - nd.abs(unscaled_pred)
-            else:
-                """
+            """
                 print("unscaled_pred",unscaled_pred)
                 print("nd.sigmoid(unscaled_pred)", nd.sigmoid(unscaled_pred))
                 print("self.y_span", self.y_span)
@@ -223,7 +224,7 @@ class EmbedNet(gluon.Block): # TODO: hybridize?
                 print("self.y_lower.shape", self.y_lower.shape)
                 print("nd.sigmoid(unscaled_pred).shape", nd.sigmoid(unscaled_pred).shape)
                 """
-                return nd.sigmoid(unscaled_pred) * self.y_span + self.y_lower
+            return nd.sigmoid(unscaled_pred) * self.y_span + self.y_lower
 
 
 """ OLD 
@@ -252,7 +253,7 @@ class EmbedNet(gluon.Block): # TODO: hybridize?
 """
 
 
-def getEmbedSizes(train_dataset, params, num_categs_per_feature):  
+def getEmbedSizes(train_dataset, params, num_categs_per_feature):
     """ Returns list of embedding sizes for each categorical variable.
         Selects this adaptively based on training_datset.
         Note: Assumes there is at least one embed feature.
@@ -260,7 +261,16 @@ def getEmbedSizes(train_dataset, params, num_categs_per_feature):
     max_embedding_dim = params['max_embedding_dim']
     embed_exponent = params['embed_exponent']
     size_factor = params['embedding_size_factor']
-    embed_dims = [int(size_factor*max(2, min(max_embedding_dim, 
-                                      1.6 * num_categs_per_feature[i]**embed_exponent)))
-                   for i in range(len(num_categs_per_feature))]
-    return embed_dims
+    return [
+        int(
+            size_factor
+            * max(
+                2,
+                min(
+                    max_embedding_dim,
+                    1.6 * num_categs_per_feature[i] ** embed_exponent,
+                ),
+            )
+        )
+        for i in range(len(num_categs_per_feature))
+    ]

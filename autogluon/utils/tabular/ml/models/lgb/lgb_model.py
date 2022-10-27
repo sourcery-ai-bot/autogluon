@@ -79,9 +79,11 @@ class LGBModel(AbstractModel):
         logger.log(15, params)
 
         num_rows_train = len(dataset_train.data)
-        if 'min_data_in_leaf' in params:
-            if params['min_data_in_leaf'] > num_rows_train:  # TODO: may not be necessary
-                params['min_data_in_leaf'] = max(1, int(num_rows_train / 5.0))
+        if (
+            'min_data_in_leaf' in params
+            and params['min_data_in_leaf'] > num_rows_train
+        ):
+            params['min_data_in_leaf'] = max(1, int(num_rows_train / 5.0))
 
         # TODO: Better solution: Track trend to early stop when score is far worse than best score, or score is trending worse over time
         if (dataset_val is not None) and (dataset_train is not None):
@@ -94,7 +96,7 @@ class LGBModel(AbstractModel):
         valid_names = ['train_set']
         valid_sets = [dataset_train]
         if dataset_val is not None:
-            reporter = kwargs.get('reporter', None)
+            reporter = kwargs.get('reporter')
             train_loss_name = self._get_train_loss_name() if reporter is not None else None
             if train_loss_name is not None:
                 if 'metric' not in params or params['metric'] == '':
@@ -121,11 +123,10 @@ class LGBModel(AbstractModel):
         }
         if not isinstance(eval_metric, str):
             train_params['feval'] = eval_metric
-        else:
-            if 'metric' not in train_params['params'] or train_params['params']['metric'] == '':
-                train_params['params']['metric'] = eval_metric
-            elif eval_metric not in train_params['params']['metric']:
-                train_params['params']['metric'] = f'{train_params["params"]["metric"]},{eval_metric}'
+        elif 'metric' not in train_params['params'] or train_params['params']['metric'] == '':
+            train_params['params']['metric'] = eval_metric
+        elif eval_metric not in train_params['params']['metric']:
+            train_params['params']['metric'] = f'{train_params["params"]["metric"]},{eval_metric}'
         if self.problem_type == SOFTCLASS:
             train_params['fobj'] = lgb_utils.softclass_lgbobj
         if seed_val is not None:
@@ -147,12 +148,10 @@ class LGBModel(AbstractModel):
 
         y_pred_proba = self.model.predict(X)
         if self.problem_type == BINARY:
-            if len(y_pred_proba.shape) == 1:
+            if len(y_pred_proba.shape) == 1 or y_pred_proba.shape[1] <= 1:
                 return y_pred_proba
-            elif y_pred_proba.shape[1] > 1:
-                return y_pred_proba[:, 1]
             else:
-                return y_pred_proba
+                return y_pred_proba[:, 1]
         elif self.problem_type == MULTICLASS:
             return y_pred_proba
         elif self.problem_type == SOFTCLASS:  # apply softmax
@@ -160,9 +159,7 @@ class LGBModel(AbstractModel):
             y_pred_proba = np.multiply(y_pred_proba, 1/np.sum(y_pred_proba, axis=1)[:, np.newaxis])
             return y_pred_proba
         else:
-            if len(y_pred_proba.shape) == 1:
-                return y_pred_proba
-            elif y_pred_proba.shape[1] > 2:  # Should this ever happen?
+            if len(y_pred_proba.shape) == 1 or y_pred_proba.shape[1] > 2:
                 return y_pred_proba
             else:  # Should this ever happen?
                 return y_pred_proba[:, 1]
@@ -336,7 +333,7 @@ class LGBModel(AbstractModel):
     def get_model_feature_importance(self, use_original_feature_names=False):
         feature_names = self.model.feature_name()
         importances = self.model.feature_importance()
-        importance_dict = {feature_name: importance for (feature_name, importance) in zip(feature_names, importances)}
+        importance_dict = dict(zip(feature_names, importances))
         if use_original_feature_names and (self._internal_feature_map is not None):
             inverse_internal_feature_map = {i: feature for feature, i in self._internal_feature_map.items()}
             importance_dict = {inverse_internal_feature_map[i]: importance for i, importance in importance_dict.items()}

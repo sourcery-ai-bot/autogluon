@@ -14,7 +14,7 @@ class WeightedEnsembleModel(StackerEnsembleModel):
     def __init__(self, base_model_names, base_model_paths_dict, base_model_types_dict, **kwargs):
         model_0 = base_model_types_dict[base_model_names[0]].load(path=base_model_paths_dict[base_model_names[0]], verbose=False)
         super().__init__(model_base=model_0, base_model_names=base_model_names, base_model_paths_dict=base_model_paths_dict, base_model_types_dict=base_model_types_dict, use_orig_features=False, **kwargs)
-        child_hyperparameters = kwargs.get('_tmp_greedy_hyperparameters', None)  # TODO: Rework to avoid this hack
+        child_hyperparameters = kwargs.get('_tmp_greedy_hyperparameters')
         self.model_base = GreedyWeightedEnsembleModel(path='', name='greedy_ensemble', num_classes=self.num_classes, base_model_names=self.stack_column_prefix_lst, problem_type=self.problem_type, eval_metric=self.eval_metric, stopping_metric=self.stopping_metric, hyperparameters=child_hyperparameters)
         self._child_type = type(self.model_base)
         self.low_memory = False
@@ -45,11 +45,6 @@ class WeightedEnsembleModel(StackerEnsembleModel):
 
     def compute_feature_importance(self, X, y, features_to_use=None, preprocess=True, is_oof=True, **kwargs):
         logger.warning('Warning: non-raw feature importance calculation is not valid for weighted ensemble since it does not have features, returning ensemble weights instead...')
-        if is_oof:
-            feature_importance = pd.Series(self._get_model_weights()).sort_values(ascending=False)
-        else:
+        if not is_oof:
             logger.warning('Warning: Feature importance calculation is not yet implemented for WeightedEnsembleModel on unseen data, returning generic feature importance...')
-            feature_importance = pd.Series(self._get_model_weights()).sort_values(ascending=False)
-            # TODO: Rewrite preprocess() in greedy_weighted_ensemble_model to enable
-            # feature_importance = super().compute_feature_importance(X=X, y=y, features_to_use=features_to_use, preprocess=preprocess, is_oof=is_oof, **kwargs)
-        return feature_importance
+        return pd.Series(self._get_model_weights()).sort_values(ascending=False)

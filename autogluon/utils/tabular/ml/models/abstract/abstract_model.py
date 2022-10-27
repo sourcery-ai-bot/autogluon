@@ -35,9 +35,7 @@ def fixedvals_from_searchspaces(params):
         params = params.copy()
         for hyperparam in bad_keys:
             params[hyperparam] = hp_default_value(params[hyperparam])
-        return params
-    else:
-        return params
+    return params
 
 
 def hp_default_value(hp_value):
@@ -50,7 +48,10 @@ def hp_default_value(hp_value):
     elif isinstance(hp_value, List):
         return [z[0] for z in hp_value]
     elif isinstance(hp_value, NestedSpace):
-        raise ValueError("Cannot extract default value from NestedSpace. Please specify fixed value instead of: %s" % str(hp_value))
+        raise ValueError(
+            f"Cannot extract default value from NestedSpace. Please specify fixed value instead of: {str(hp_value)}"
+        )
+
     else:
         return hp_value.get_hp('dummy_name').default_value
 
@@ -130,7 +131,7 @@ class AbstractModel:
         if hyperparameters is not None:
             self.params.update(hyperparameters)
             self.nondefault_params = list(hyperparameters.keys())[:]  # These are hyperparameters that user has specified.
-        self.params_trained = dict()
+        self.params_trained = {}
 
     # Checks if model is capable of inference on new data (if normal model) or has produced out-of-fold predictions (if bagged model)
     def is_valid(self):
@@ -207,8 +208,7 @@ class AbstractModel:
 
     @staticmethod
     def create_contexts(path_context):
-        path = path_context
-        return path
+        return path_context
 
     def rename(self, name):
         self.path = self.path[:-len(self.name) - 1] + name + os.path.sep
@@ -218,11 +218,7 @@ class AbstractModel:
     # This means preprocess cannot be used for normalization
     # TODO: Add preprocess_stateful() to enable stateful preprocessing for models such as KNN
     def preprocess(self, X):
-        if self.features is not None:
-            # TODO: In online-inference this becomes expensive, add option to remove it (only safe in controlled environment where it is already known features are present
-            if list(X.columns) != self.features:
-                return X[self.features]
-        else:
+        if self.features is None:
             self.features = list(X.columns)  # TODO: add fit and transform versions of preprocess instead of doing this
             ignored_feature_types_raw = self.params_aux.get('ignored_feature_types_raw', [])
             if ignored_feature_types_raw:
@@ -234,13 +230,16 @@ class AbstractModel:
                     self.features = [feature for feature in self.features if feature not in self.feature_types_metadata.feature_types_special[ignored_feature_type]]
             if not self.features:
                 raise NoValidFeatures
-            if ignored_feature_types_raw or ignored_feature_types_special:
-                if list(X.columns) != self.features:
-                    X = X[self.features]
+            if (
+                ignored_feature_types_raw or ignored_feature_types_special
+            ) and list(X.columns) != self.features:
+                X = X[self.features]
+        elif list(X.columns) != self.features:
+            return X[self.features]
         return X
 
     def _preprocess_fit_args(self, **kwargs):
-        time_limit = kwargs.get('time_limit', None)
+        time_limit = kwargs.get('time_limit')
         max_time_limit_ratio = self.params_aux.get('max_time_limit_ratio', 1)
         if time_limit is not None:
             time_limit *= max_time_limit_ratio
@@ -273,8 +272,9 @@ class AbstractModel:
 
     def predict(self, X, preprocess=True):
         y_pred_proba = self.predict_proba(X, preprocess=preprocess)
-        y_pred = get_pred_from_proba(y_pred_proba=y_pred_proba, problem_type=self.problem_type)
-        return y_pred
+        return get_pred_from_proba(
+            y_pred_proba=y_pred_proba, problem_type=self.problem_type
+        )
 
     def predict_proba(self, X, preprocess=True, normalize=None):
         if normalize is None:
@@ -293,12 +293,10 @@ class AbstractModel:
 
         y_pred_proba = self.model.predict_proba(X)
         if self.problem_type == BINARY:
-            if len(y_pred_proba.shape) == 1:
+            if len(y_pred_proba.shape) == 1 or y_pred_proba.shape[1] <= 1:
                 return y_pred_proba
-            elif y_pred_proba.shape[1] > 1:
-                return y_pred_proba[:, 1]
             else:
-                return y_pred_proba
+                return y_pred_proba[:, 1]
         elif y_pred_proba.shape[1] > 2:
             return y_pred_proba
         else:
@@ -321,11 +319,10 @@ class AbstractModel:
             eval_metric = self.eval_metric
         if metric_needs_y_pred is None:
             metric_needs_y_pred = self.metric_needs_y_pred
-        if metric_needs_y_pred:
-            y_pred = get_pred_from_proba(y_pred_proba=y_pred_proba, problem_type=self.problem_type)
-            return eval_metric(y, y_pred)
-        else:
+        if not metric_needs_y_pred:
             return eval_metric(y, y_pred_proba)
+        y_pred = get_pred_from_proba(y_pred_proba=y_pred_proba, problem_type=self.problem_type)
+        return eval_metric(y, y_pred)
 
     def save(self, file_prefix="", directory=None, return_filename=False, verbose=True):
         if directory is None:
@@ -340,10 +337,9 @@ class AbstractModel:
         load_path = path + file_prefix + cls.model_file_name
         if not reset_paths:
             return load_pkl.load(path=load_path, verbose=verbose)
-        else:
-            obj = load_pkl.load(path=load_path, verbose=verbose)
-            obj.set_contexts(path)
-            return obj
+        obj = load_pkl.load(path=load_path, verbose=verbose)
+        obj.set_contexts(path)
+        return obj
 
     # TODO: Consider disabling feature pruning when num_features is high (>1000 for example), or using a faster feature importance calculation method
     def compute_feature_importance(self, X, y, features_to_use=None, preprocess=True, subsample_size=10000, silent=False, **kwargs):
@@ -357,11 +353,7 @@ class AbstractModel:
         if preprocess:
             X = self.preprocess(X)
 
-        if not features_to_use:
-            features = list(X.columns.values)
-        else:
-            features = list(features_to_use)
-
+        features = list(features_to_use) if features_to_use else list(X.columns.values)
         feature_importance_quick_dict = self.get_model_feature_importance()
         # TODO: Also consider banning features with close to 0 importance
         # TODO: Consider adding 'golden' features if the importance is high enough to avoid unnecessary computation when doing feature selection
@@ -460,7 +452,7 @@ class AbstractModel:
 
     # Custom feature importance values for a model (such as those calculated from training)
     def get_model_feature_importance(self) -> dict:
-        return dict()
+        return {}
 
     # Hyperparameters of trained model
     def get_trained_params(self):
@@ -489,7 +481,11 @@ class AbstractModel:
     def hyperparameter_tune(self, X_train, y_train, X_val, y_val, scheduler_options, **kwargs):
         # verbosity = kwargs.get('verbosity', 2)
         time_start = time.time()
-        logger.log(15, "Starting generic AbstractModel hyperparameter tuning for %s model..." % self.name)
+        logger.log(
+            15,
+            f"Starting generic AbstractModel hyperparameter tuning for {self.name} model...",
+        )
+
         self._set_default_searchspace()
         params_copy = self.params.copy()
         directory = self.path  # also create model directory if it doesn't exist
@@ -510,7 +506,7 @@ class AbstractModel:
         if not any(isinstance(params_copy[hyperparam], Space) for hyperparam in params_copy):
             logger.warning("Attempting to do hyperparameter optimization without any search space (all hyperparameters are already fixed values)")
         else:
-            logger.log(15, "Hyperparameter search space for %s model: " % self.name)
+            logger.log(15, f"Hyperparameter search space for {self.name} model: ")
             for hyperparam in params_copy:
                 if isinstance(params_copy[hyperparam], Space):
                     logger.log(15, f"{hyperparam}:   {params_copy[hyperparam]}")
@@ -563,14 +559,17 @@ class AbstractModel:
         hpo_model_performances = {}
         for trial in sorted(hpo_results['trial_info'].keys()):
             # TODO: ignore models which were killed early by scheduler (eg. in Hyperband). How to ID these?
-            file_id = "trial_" + str(trial)  # unique identifier to files from this trial
+            file_id = f"trial_{str(trial)}"
             trial_model_name = self.name + os.path.sep + file_id
             trial_model_path = self.path_root + trial_model_name + os.path.sep
             hpo_models[trial_model_name] = trial_model_path
             hpo_model_performances[trial_model_name] = hpo_results['trial_info'][trial][scheduler._reward_attr]
 
-        logger.log(15, "Time for %s model HPO: %s" % (self.name, str(hpo_results['total_time'])))
-        logger.log(15, "Best hyperparameter configuration for %s model: " % self.name)
+        logger.log(
+            15, f"Time for {self.name} model HPO: {str(hpo_results['total_time'])}"
+        )
+
+        logger.log(15, f"Best hyperparameter configuration for {self.name} model: ")
         logger.log(15, str(best_hp))
         return hpo_models, hpo_model_performances, hpo_results
 
@@ -587,7 +586,7 @@ class AbstractModel:
         self.fit_time = None
         self.predict_time = None
         self.val_score = None
-        self.params_trained = dict()
+        self.params_trained = {}
 
     # TODO: Experimental, currently unused
     #  Has not been tested on Windows
@@ -597,8 +596,7 @@ class AbstractModel:
         # Taken from https://stackoverflow.com/a/1392549
         from pathlib import Path
         model_path = Path(self.path)
-        model_disk_size = sum(f.stat().st_size for f in model_path.glob('**/*') if f.is_file())
-        return model_disk_size
+        return sum(f.stat().st_size for f in model_path.glob('**/*') if f.is_file())
 
     # TODO: This results in a doubling of memory usage of the model to calculate its size.
     #  If the model takes ~40%+ of memory, this may result in an OOM error.
@@ -626,7 +624,7 @@ class AbstractModel:
         shutil.rmtree(path=model_path, ignore_errors=True)
 
     def get_info(self):
-        info = dict(
+        return dict(
             name=self.name,
             model_type=type(self).__name__,
             problem_type=self.problem_type,
@@ -641,7 +639,6 @@ class AbstractModel:
             # disk_size=self.get_disk_size(),
             memory_size=self.get_memory_size(),  # Memory usage of model in bytes
         )
-        return info
 
     @classmethod
     def load_info(cls, path, load_model_if_required=True):

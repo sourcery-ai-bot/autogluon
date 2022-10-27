@@ -65,10 +65,9 @@ class FabolasKernelFunction(KernelFunction):
         mat1 = self._compute_factor(F, X1, u1, u2, u3)
         if X2 is X1:
             return F.linalg.syrk(mat1, transpose=False)
-        else:
-            X2 = self._check_input_shape(F, X2)
-            mat2 = self._compute_factor(F, X2, u1, u2, u3)
-            return F.dot(mat1, mat2, transpose_a=False, transpose_b=True)
+        X2 = self._check_input_shape(F, X2)
+        mat2 = self._compute_factor(F, X2, u1, u2, u3)
+        return F.dot(mat1, mat2, transpose_a=False, transpose_b=True)
 
     def _get_pars(self, F, X):
         u1 = encode_unwrap_parameter(F, self.u1_internal, self.encoding_u12, X)

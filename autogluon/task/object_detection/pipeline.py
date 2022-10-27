@@ -107,7 +107,7 @@ def validate(net, val_data, ctx, eval_metric, args):
             split_batch = rcnn_split_and_load(batch, ctx_list=ctx)
             clipper = gcv.nn.bbox.BBoxClipToImage()
         else:
-            raise NotImplementedError('%s not implemented.' % args.meta_arch)
+            raise NotImplementedError(f'{args.meta_arch} not implemented.')
         det_bboxes = []
         det_ids = []
         det_scores = []
@@ -120,7 +120,7 @@ def validate(net, val_data, ctx, eval_metric, args):
             elif args.meta_arch == 'faster_rcnn':
                 x, y, im_scale = data
             else:
-                raise NotImplementedError('%s not implemented.' % args.meta_arch)
+                raise NotImplementedError(f'{args.meta_arch} not implemented.')
             # get prediction results
             ids, scores, bboxes = net(x)
             det_ids.append(ids)
@@ -134,7 +134,7 @@ def validate(net, val_data, ctx, eval_metric, args):
                 im_scale = im_scale.reshape((-1)).asscalar()
                 det_bboxes[-1] *= im_scale
             else:
-                raise NotImplementedError('%s not implemented.' % args.meta_arch)
+                raise NotImplementedError(f'{args.meta_arch} not implemented.')
             # split ground truths
             gt_ids.append(y.slice_axis(axis=-1, begin=4, end=5))
             gt_bboxes.append(y.slice_axis(axis=-1, begin=0, end=4))
@@ -151,7 +151,7 @@ def validate(net, val_data, ctx, eval_metric, args):
                                                                             gt_ids, gt_difficults):
                 eval_metric.update(det_bbox, det_id, det_score, gt_bbox, gt_id, gt_diff)
         else:
-            raise NotImplementedError('%s not implemented.' % args.meta_arch)
+            raise NotImplementedError(f'{args.meta_arch} not implemented.')
     return eval_metric.get()
 
 
@@ -182,13 +182,13 @@ def train(net, train_data, val_data, eval_metric, ctx, args, reporter, final_fit
         raw_metrics, metrics = get_faster_rcnn_metrics()
         rpn_cls_loss, rpn_box_loss, rcnn_cls_loss, rcnn_box_loss = get_rcnn_losses(args)
     else:
-        raise NotImplementedError('%s not implemented.' % args.meta_arch)
+        raise NotImplementedError(f'{args.meta_arch} not implemented.')
 
     # set up logger
     logging.basicConfig()
     logger = logging.getLogger()
     logger.setLevel(logging.INFO)
-    log_file_path = args.save_prefix + '_train.log'
+    log_file_path = f'{args.save_prefix}_train.log'
     log_dir = os.path.dirname(log_file_path)
     if log_dir and not os.path.exists(log_dir):
         os.makedirs(log_dir)
@@ -249,17 +249,19 @@ def train(net, train_data, val_data, eval_metric, ctx, args, reporter, final_fit
                 if executor is not None:
                     for data in zip(*batch):
                         executor.put(data)
-                for j in range(len(ctx)):
-                    if executor is not None:
-                        result = executor.get()
-                    else:
-                        result = rcnn_task.forward_backward(list(zip(*batch))[0])
+                for _ in range(len(ctx)):
+                    result = (
+                        executor.get()
+                        if executor is not None
+                        else rcnn_task.forward_backward(list(zip(*batch))[0])
+                    )
+
                     for k in range(len(raw_metrics_values)):
                         raw_metrics_values[k].append(result[k])
                     for k in range(len(metrics_values)):
                         metrics_values[k].append(result[len(metrics_values) + k])
             else:
-                raise NotImplementedError('%s not implemented.' % args.meta_arch)
+                raise NotImplementedError(f'{args.meta_arch} not implemented.')
             trainer.step(batch_size)
 
             for metric, record in zip(raw_metrics, raw_metrics_values):
@@ -281,9 +283,9 @@ def train(net, train_data, val_data, eval_metric, ctx, args, reporter, final_fit
         if (not (epoch + 1) % args.val_interval) and not final_fit:
             # consider reduce the frequency of validation to save time
             map_name, mean_ap = validate(net, val_data, ctx, eval_metric, args)
-            val_msg = ' '.join(['{}={}'.format(k, v) for k, v in zip(map_name, mean_ap)])
+            val_msg = ' '.join([f'{k}={v}' for k, v in zip(map_name, mean_ap)])
             # $tbar.set_description('[Epoch {}] Validation: {}'.format(epoch, val_msg))
-            logger.info('[Epoch {}] Validation: {}'.format(epoch, val_msg))
+            logger.info(f'[Epoch {epoch}] Validation: {val_msg}')
             current_map = float(mean_ap[-1])
             pre_current_map = current_map
         else:

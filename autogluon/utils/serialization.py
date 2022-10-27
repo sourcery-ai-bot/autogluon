@@ -147,9 +147,8 @@ def _check_seekable(f):
     def raise_err_msg(patterns, e):
         for p in patterns:
             if p in str(e):
-                msg = (str(e) + ". You can only load from a file that is seekable." +
-                                " Please pre-load the data into a buffer like io.BytesIO and" +
-                                " try to load from it instead.")
+                msg = f"{str(e)}. You can only load from a file that is seekable. Please pre-load the data into a buffer like io.BytesIO and try to load from it instead."
+
                 raise type(e)(msg)
         raise e
 
@@ -225,7 +224,7 @@ def _load(f, map_location, pickle_module, **pickle_load_args):
             return
         if original_source != current_source:
             if container_type.dump_patches:
-                file_name = container_type.__name__ + '.patch'
+                file_name = f'{container_type.__name__}.patch'
                 diff = difflib.unified_diff(current_source.split('\n'),
                                             original_source.split('\n'),
                                             source_file,
@@ -239,9 +238,14 @@ def _load(f, map_location, pickle_module, **pickle_load_args):
                             f.write(lines)
                         elif file_size != len(lines) or f.read() != lines:
                             raise IOError
-                    msg = ("Saved a reverse patch to " + file_name + ". "
-                           "Run `patch -p0 < " + file_name + "` to revert your "
-                           "changes.")
+                    msg = (
+                        (
+                            f"Saved a reverse patch to {file_name}" + ". "
+                            "Run `patch -p0 < "
+                        )
+                        + file_name
+                    ) + "` to revert your " "changes."
+
                 except IOError:
                     msg = ("Tried to save a patch, but couldn't create a "
                            "writable file " + file_name + ". Make sure it "
@@ -263,9 +267,7 @@ def _load(f, map_location, pickle_module, **pickle_load_args):
         #
         # NOTE: This should only be used on internal keys (e.g., `typename` and
         #       `location` in `persistent_load` below!
-        if isinstance(bytes_str, bytes):
-            return bytes_str.decode('ascii')
-        return bytes_str
+        return bytes_str.decode('ascii') if isinstance(bytes_str, bytes) else bytes_str
 
     def persistent_load(saved_id):
         assert isinstance(saved_id, tuple)
@@ -292,7 +294,7 @@ def _load(f, map_location, pickle_module, **pickle_load_args):
             else:
                 return storage
         else:
-            raise RuntimeError("Unknown saved id type: %s" % saved_id[0])
+            raise RuntimeError(f"Unknown saved id type: {saved_id[0]}")
 
     def legacy_load(f):
         deserialized_objects = {}
@@ -363,7 +365,7 @@ def _load(f, map_location, pickle_module, **pickle_load_args):
         raise RuntimeError("Invalid magic number; corrupt file?")
     protocol_version = pickle_module.load(f, **pickle_load_args)
     if protocol_version != PROTOCOL_VERSION:
-        raise RuntimeError("Invalid protocol version: %s" % protocol_version)
+        raise RuntimeError(f"Invalid protocol version: {protocol_version}")
 
     _sys_info = pickle_module.load(f, **pickle_load_args)
     unpickler = pickle_module.Unpickler(f, **pickle_load_args)

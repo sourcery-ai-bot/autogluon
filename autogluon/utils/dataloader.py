@@ -206,12 +206,12 @@ class DataLoader(object):
         self._thread_pool = thread_pool
         self._timeout = timeout
         self._sample_times = sample_times
-        assert timeout > 0, "timeout must be positive, given {}".format(timeout)
+        assert timeout > 0, f"timeout must be positive, given {timeout}"
 
         if batch_sampler is None:
             if batch_size is None:
                 raise ValueError("batch_size must be specified unless " \
-                                 "batch_sampler is specified")
+                                     "batch_sampler is specified")
             if sampler is None:
                 if shuffle:
                     sampler = _sampler.RandomSampler(len(dataset))
@@ -221,14 +221,16 @@ class DataLoader(object):
                 raise ValueError("shuffle must not be specified if sampler is specified")
 
             batch_sampler = _sampler.BatchSampler(
-                sampler, batch_size, last_batch if last_batch else 'keep')
+                sampler, batch_size, last_batch or 'keep'
+            )
+
         elif batch_size is not None or shuffle or sampler is not None or \
-                last_batch is not None:
+                    last_batch is not None:
             raise ValueError("batch_size, shuffle, sampler and last_batch must " \
-                             "not be specified if batch_sampler is specified.")
+                                 "not be specified if batch_sampler is specified.")
 
         self._batch_sampler = batch_sampler
-        self._num_workers = num_workers if num_workers >= 0 else 0
+        self._num_workers = max(num_workers, 0)
         self._worker_pool = None
         self._prefetch = max(0, int(prefetch) if prefetch is not None else 2 * self._num_workers)
         if self._num_workers > 0:

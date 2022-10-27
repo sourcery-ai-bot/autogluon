@@ -86,19 +86,20 @@ class AddJitterOp(mx.operator.CustomOp):
                 must_increase_jitter = False
             except mx.base.MXNetError:
                 if self._debug_log == 'true':
-                    logger.info("sigsq = {} does not work".format(
-                        sigsq_init.asscalar() + jitter))
+                    logger.info(f"sigsq = {sigsq_init.asscalar() + jitter} does not work")
                 if jitter == 0.0:
                     jitter = self._initial_jitter_factor * mx.nd.mean(
                         mx.nd.diag(x)).asscalar()
                 else:
                     jitter *= self._jitter_growth
 
-        assert not must_increase_jitter,\
-            "The jitter ({}) has reached its upperbound ({}) while the Cholesky of the input matrix still cannot be computed.".format(jitter, jitter_upperbound)
+        assert (
+            not must_increase_jitter
+        ), f"The jitter ({jitter}) has reached its upperbound ({jitter_upperbound}) while the Cholesky of the input matrix still cannot be computed."
+
         if self._debug_log == 'true':
             _sigsq_init = sigsq_init.asscalar()
-            logger.info("sigsq_final = {}".format(_sigsq_init + jitter))
+            logger.info(f"sigsq_final = {_sigsq_init + jitter}")
         self.assign(out_data[0], req[0], x_plus_constant)
 
     def backward(self, req, out_grad, in_data, out_data, in_grad, aux):

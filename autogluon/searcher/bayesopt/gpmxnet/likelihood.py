@@ -83,9 +83,11 @@ class MarginalLikelihood(gluon.HybridBlock):
 
         all_box_constraints = {}
         for param, encoding in self.param_encoding_pairs():
-            assert encoding is not None, \
-                "encoding of param {} should not be None".format(param.name)
-            all_box_constraints.update(encoding.box_constraints_internal(param))
+            assert (
+                encoding is not None
+            ), f"encoding of param {param.name} should not be None"
+
+            all_box_constraints |= encoding.box_constraints_internal(param)
         return all_box_constraints
 
     def get_noise_variance(self, as_ndarray=False):
@@ -99,8 +101,8 @@ class MarginalLikelihood(gluon.HybridBlock):
     def get_params(self):
         result = {'noise_variance': self.get_noise_variance()}
         for pref, func in [('kernel_', self.kernel), ('mean_', self.mean)]:
-            result.update({
-                (pref + k): v for k, v in func.get_params().items()})
+            result |= {(pref + k): v for k, v in func.get_params().items()}
+
         return result
 
     def set_params(self, param_dict):

@@ -22,9 +22,9 @@ class SimpleSpace(Space):
     def __repr__(self):
         reprstr = self.__class__.__name__
         if hasattr(self, 'lower') and hasattr(self, 'upper'):
-            reprstr += ': lower={}, upper={}'.format(self.lower, self.upper)
+            reprstr += f': lower={self.lower}, upper={self.upper}'
         if hasattr(self, 'value'):
-            reprstr += ': value={}'.format(self.value)
+            reprstr += f': value={self.value}'
         return reprstr
 
     def get_hp(self, name):
@@ -42,8 +42,7 @@ class SimpleSpace(Space):
     def default(self):
         """Return default value of hyperparameter corresponding to this search space.
         """
-        default = self._default if self._default else self.hp.default_value
-        return default
+        return self._default or self.hp.default_value
 
     @default.setter
     def default(self, value):
@@ -129,10 +128,10 @@ class AutoGluonObject(NestedSpace):
         return cs
 
     @classproperty
-    def kwspaces(cls):
+    def kwspaces(self):
         """ OrderedDict representation of this search space.
         """
-        return cls.__init__.kwspaces
+        return self.__init__.kwspaces
 
     def sample(self):
         """Sample a configuration from this search space.
@@ -163,8 +162,7 @@ class List(NestedSpace):
         self.data = [*args]
 
     def __iter__(self):
-        for elem in self.data:
-            yield elem
+        yield from self.data
 
     def __getitem__(self, index):
         return self.data[index]
@@ -196,7 +194,7 @@ class List(NestedSpace):
         """
         ret = []
         kwspaces = self.kwspaces
-        striped_keys = [k.split(SPLITTER)[0] for k in config.keys()]
+        striped_keys = [k.split(SPLITTER)[0] for k in config]
         for idx, obj in enumerate(self.data):
             if isinstance(obj, NestedSpace):
                 sub_config = _strip_config_space(config, prefix=str(idx))
@@ -230,15 +228,14 @@ class List(NestedSpace):
             if isinstance(obj, NestedSpace):
                 kw_spaces[k] = obj
                 for sub_k, sub_v in obj.kwspaces.items():
-                    new_k = '{}{}{}'.format(k, SPLITTER, sub_k)
+                    new_k = f'{k}{SPLITTER}{sub_k}'
                     kw_spaces[new_k] = sub_v
             elif isinstance(obj, Space):
                 kw_spaces[k] = obj
         return kw_spaces
 
     def __repr__(self):
-        reprstr = self.__class__.__name__ + str(self.data)
-        return reprstr
+        return self.__class__.__name__ + str(self.data)
 
 class Dict(NestedSpace):
     """Nested search space for dictionary containing multiple hyperparameters.
@@ -298,7 +295,7 @@ class Dict(NestedSpace):
             if isinstance(obj, NestedSpace):
                 kw_spaces[k] = obj
                 for sub_k, sub_v in obj.kwspaces.items():
-                    new_k = '{}{}{}'.format(k, SPLITTER, sub_k)
+                    new_k = f'{k}{SPLITTER}{sub_k}'
                     kw_spaces[new_k] = sub_v
                     kw_spaces[new_k] = sub_v
             elif isinstance(obj, Space):
@@ -309,10 +306,10 @@ class Dict(NestedSpace):
         """Sample a configuration from this search space.
         """
         ret = {}
-        ret.update(self.data)
+        ret |= self.data
         kwspaces = self.kwspaces
         kwspaces.update(config)
-        striped_keys = [k.split(SPLITTER)[0] for k in config.keys()]
+        striped_keys = [k.split(SPLITTER)[0] for k in config]
         for k, v in kwspaces.items():
             if k in striped_keys:
                 if isinstance(v, NestedSpace):
@@ -323,8 +320,7 @@ class Dict(NestedSpace):
         return ret
 
     def __repr__(self):
-        reprstr = self.__class__.__name__ + str(self.data)
-        return reprstr
+        return self.__class__.__name__ + str(self.data)
 
 
 class Categorical(NestedSpace):
@@ -344,8 +340,7 @@ class Categorical(NestedSpace):
         self.data = [*data]
 
     def __iter__(self):
-        for elem in self.data:
-            yield elem
+        yield from self.data
 
     def __getitem__(self, index):
         return self.data[index]
@@ -389,13 +384,12 @@ class Categorical(NestedSpace):
         for idx, obj in enumerate(self.data):
             if isinstance(obj, NestedSpace):
                 for sub_k, sub_v in obj.kwspaces.items():
-                    new_k = '{}{}{}'.format(idx, SPLITTER, sub_k)
+                    new_k = f'{idx}{SPLITTER}{sub_k}'
                     kw_spaces[new_k] = sub_v
         return kw_spaces
 
     def __repr__(self):
-        reprstr = self.__class__.__name__ + str(self.data)
-        return reprstr
+        return self.__class__.__name__ + str(self.data)
 
 Choice = DeprecationHelper(Categorical, 'Choice')
 
@@ -467,12 +461,11 @@ class Bool(Int):
         super(Bool, self).__init__(0, 1)
 
 def _strip_config_space(config, prefix):
-    # filter out the config with the corresponding prefix
-    new_config = {}
-    for k, v in config.items():
-        if k.startswith(prefix):
-            new_config[k[len(prefix)+1:]] = v
-    return new_config
+    return {
+        k[len(prefix) + 1 :]: v
+        for k, v in config.items()
+        if k.startswith(prefix)
+    }
 
 def _add_hp(cs, hp):
     if hp.name in cs._hyperparameters:
@@ -487,8 +480,8 @@ def _add_cs(master_cs, sub_cs, prefix, delimiter='.', parent_hp=None):
         # Allow for an empty top-level parameter
         if new_parameter.name == '':
             new_parameter.name = prefix
-        elif not prefix == '':
-            new_parameter.name = "{}{}{}".format(prefix, SPLITTER, new_parameter.name)
+        elif prefix != '':
+            new_parameter.name = f"{prefix}{SPLITTER}{new_parameter.name}"
         new_parameters.append(new_parameter)
     for hp in new_parameters:
         _add_hp(master_cs, hp)
@@ -497,5 +490,5 @@ def _rm_hp(cs, k):
     if k in cs._hyperparameters:
         cs._hyperparameters.pop(k)
     for hp in cs.get_hyperparameters():
-        if  hp.name.startswith('{}'.format(k)):
+        if hp.name.startswith(f'{k}'):
             cs._hyperparameters.pop(hp.name)

@@ -12,7 +12,7 @@ class Scaling(ABC):
         pass
 
     def __repr__(self):
-        return "{}()".format(self.__class__.__name__)
+        return f"{self.__class__.__name__}()"
 
     def __eq__(self, other):
         # For usage in tests. Make sure to edit if parameters are added.

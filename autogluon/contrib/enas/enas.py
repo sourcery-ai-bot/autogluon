@@ -12,6 +12,9 @@ __all__ = ['enas_unit', 'enas_net',
 
 def enas_unit(**kwvars):
     def registered_class(Cls):
+
+
+
         class enas_unit(ENAS_Unit):
             def __init__(self, *args, **kwargs):
                 kwvars.update(kwargs)
@@ -32,7 +35,7 @@ def enas_unit(**kwvars):
                 arg = self._args[self.index]
                 if arg is None: return arg
                 summary = {}
-                name = self.module_list[self.index].__class__.__name__ + '('
+                name = f'{self.module_list[self.index].__class__.__name__}('
                 for k, v in json.loads(arg).items():
                     if 'kernel' in k.lower():
                         cm = ("#8dd3c7", "#fb8072", "#ffffb3", "#bebada", "#80b1d3",
@@ -61,11 +64,16 @@ def enas_unit(**kwvars):
                     config.update(constants)
                 return configs
 
+
         return enas_unit
+
     return registered_class
 
 def enas_net(**kwvars):
     def registered_class(Cls):
+
+
+
         class ENAS_Net(Cls):
             def __init__(self, *args, **kwargs):
                 kwvars.update(kwargs)
@@ -134,7 +142,7 @@ def enas_net(**kwvars):
                 return self._kwspaces
 
             def sample(self, **configs):
-                striped_keys = [k.split('.')[0] for k in configs.keys()]
+                striped_keys = [k.split('.')[0] for k in configs]
                 for k in striped_keys:
                     if isinstance(self._modules[k], ENAS_Unit):
                         self._modules[k].sample(configs[k])
@@ -168,7 +176,9 @@ def enas_net(**kwvars):
                 self._avg_latency = avg_latency
                 self.latency_evaluated = True
 
+
         return ENAS_Net
+
     return registered_class
 
 class ENAS_Sequential(gluon.HybridBlock):
@@ -279,10 +289,7 @@ class ENAS_Sequential(gluon.HybridBlock):
         import time
         # evaluate submodule latency
         for k, op in self._modules.items():
-            if hasattr(op, 'evaluate_latency'):
-                x = op.evaluate_latency(x)
-            else:
-                x = op(x)
+            x = op.evaluate_latency(x) if hasattr(op, 'evaluate_latency') else op(x)
         # calc avg_latency
         avg_latency = 0.0
         for k, op in self._modules.items():
@@ -297,9 +304,9 @@ class ENAS_Sequential(gluon.HybridBlock):
             self._modules[k].sample(v)
 
     def __repr__(self):
-        reprstr = self.__class__.__name__ + '('
+        reprstr = f'{self.__class__.__name__}('
         for i, op in self._modules.items():
-            reprstr += '\n\t{}: {}'.format(i, op)
+            reprstr += f'\n\t{i}: {op}'
         reprstr += ')\n'
         return reprstr
 
@@ -334,10 +341,10 @@ class ENAS_Unit(gluon.HybridBlock):
 
     @property
     def nparams(self):
-        nparams = 0
-        for _, v in self.module_list[self.index].collect_params().items():
-            nparams += v.data().size
-        return nparams
+        return sum(
+            v.data().size
+            for _, v in self.module_list[self.index].collect_params().items()
+        )
 
     @property
     def latency(self):
@@ -374,6 +381,4 @@ class ENAS_Unit(gluon.HybridBlock):
         return len(self.module_list)
 
     def __repr__(self):
-        reprstr = self.__class__.__name__ + '(num of choices: {}), current architecture:\n\t {}' \
-            .format(len(self.module_list), self.module_list[self.index])
-        return reprstr
+        return f'{self.__class__.__name__}(num of choices: {len(self.module_list)}), current architecture:\n\t {self.module_list[self.index]}'

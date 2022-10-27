@@ -23,8 +23,7 @@ class RepeatedCandidateGenerator(CandidateGenerator):
     """Generates candidates from a fixed set. Used to test the deduplication logic."""
     def __init__(self, n_unique_candidates: int):
         self.all_unique_candidates = [
-            (1.0*j, j, "value_" + str(j))
-            for j in range(n_unique_candidates)
+            (1.0 * j, j, f"value_{str(j)}") for j in range(n_unique_candidates)
         ]
 
     def generate_candidates(self) -> Iterator[StateIdAndCandidate]:

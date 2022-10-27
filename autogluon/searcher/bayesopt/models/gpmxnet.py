@@ -73,9 +73,10 @@ def get_internal_candidate_evaluations(
             assert isinstance(pending_eval, FantasizedPendingEvaluation), \
                 "state.pending_evaluations has to contain FantasizedPendingEvaluation"
             fantasies = pending_eval.fantasies[active_metric]
-            assert fantasies.size == num_fantasize_samples, \
-                "All state.pending_evaluations entries must have length {}".format(
-                    num_fantasize_samples)
+            assert (
+                fantasies.size == num_fantasize_samples
+            ), f"All state.pending_evaluations entries must have length {num_fantasize_samples}"
+
             fanta_lst.append(fantasies.reshape((1, -1)))
             cand_lst.append(state.hp_ranges.to_ndarray(pending_eval.candidate))
         y = np.vstack([y * np.ones((1, num_fantasize_samples))] + fanta_lst)
@@ -114,10 +115,9 @@ def default_gpmodel_mcmc(
     )
 
 
-def dimensionality_and_warping_ranges(hp_ranges: HyperparameterRanges) -> \
-        Tuple[int, Dict[int, Tuple[float, float]]]:
+def dimensionality_and_warping_ranges(hp_ranges: HyperparameterRanges) -> Tuple[int, Dict[int, Tuple[float, float]]]:
     dims = 0
-    warping_ranges = dict()
+    warping_ranges = {}
     # NOTE: This explicit loop over hp_ranges will fail if
     # HyperparameterRanges.hp_ranges is not implemented! Needs to be fixed if
     # it becomes an issue, either by moving the functionality here into
@@ -228,10 +228,7 @@ class GPMXNetModel(SurrogateModelMXNet):
 
         :return: Hyperparameter dictionary
         """
-        if not self.does_mcmc():
-            return self._gpmodel.get_params()
-        else:
-            return dict()
+        return {} if self.does_mcmc() else self._gpmodel.get_params()
 
     def set_params(self, param_dict):
         self._gpmodel.set_params(param_dict)
@@ -293,7 +290,7 @@ class GPMXNetModel(SurrogateModelMXNet):
 
         """
         assert state.candidate_evaluations, \
-            "Cannot compute posterior: state has no labeled datapoints"
+                "Cannot compute posterior: state has no labeled datapoints"
         internal_candidate_evaluations = get_internal_candidate_evaluations(
             state, self.active_metric, self.normalize_targets,
             self.num_fantasy_samples)
@@ -313,9 +310,12 @@ class GPMXNetModel(SurrogateModelMXNet):
         if self._debug_log is not None:
             self._debug_log.set_gp_params(self.get_params())
             if not state.pending_evaluations:
-                deb_msg = "[GPMXNetModel._posterior_for_state]\n"
-                deb_msg += ("- self.mean = {}\n".format(self.mean))
-                deb_msg += ("- self.std = {}".format(self.std))
+                deb_msg = (
+                    "[GPMXNetModel._posterior_for_state]\n"
+                    + f"- self.mean = {self.mean}\n"
+                )
+
+                deb_msg += f"- self.std = {self.std}"
                 logger.info(deb_msg)
                 self._debug_log.set_targets(internal_candidate_evaluations.y)
             else:
@@ -323,8 +323,7 @@ class GPMXNetModel(SurrogateModelMXNet):
                 fantasies = internal_candidate_evaluations.y[-num_pending:, :]
                 self._debug_log.set_fantasies(fantasies)
 
-    def _draw_fantasy_values(self, candidates: List[Candidate]) \
-            -> List[FantasizedPendingEvaluation]:
+    def _draw_fantasy_values(self, candidates: List[Candidate]) -> List[FantasizedPendingEvaluation]:
         """
         Note: The fantasy values need not be de-normalized, because they are
         only used internally here (e.g., get_internal_candidate_evaluations).
@@ -337,38 +336,37 @@ class GPMXNetModel(SurrogateModelMXNet):
         In this case, we draw num_fantasy_samples i.i.d.
 
         """
-        if candidates:
-            logger.debug("Fantasizing target values for candidates:\n{}"
-                         .format(candidates))
-            X_new = self.state.hp_ranges.to_ndarray_matrix(candidates)
-            X_new_mx = self.convert_np_to_nd(X_new)
-            # Special case (see header comment): If the current posterior state
-            # does not contain pending candidates (no fantasies), we sample
-            # num_fantasy_samples times i.i.d.
-            num_samples = 1 if self._gpmodel.multiple_targets() \
-                else self.num_fantasy_samples
-            # We need joint sampling for >1 new candidates
-            num_candidates = len(candidates)
-            sample_func = self._gpmodel.sample_joint if num_candidates > 1 else \
-                self._gpmodel.sample_marginals
-            Y_new_mx = sample_func(X_new_mx, num_samples=num_samples)
-            Y_new = Y_new_mx.asnumpy().astype(X_new.dtype, copy=False).reshape(
-                (num_candidates, -1))
-            return [
-                FantasizedPendingEvaluation(
-                    candidate, {self.active_metric: y_new.reshape((1, -1))})
-                for candidate, y_new in zip(candidates, Y_new)
-            ]
-        else:
+        if not candidates:
             return []
+        logger.debug(f"Fantasizing target values for candidates:\n{candidates}")
+        X_new = self.state.hp_ranges.to_ndarray_matrix(candidates)
+        X_new_mx = self.convert_np_to_nd(X_new)
+        # Special case (see header comment): If the current posterior state
+        # does not contain pending candidates (no fantasies), we sample
+        # num_fantasy_samples times i.i.d.
+        num_samples = 1 if self._gpmodel.multiple_targets() \
+                else self.num_fantasy_samples
+        # We need joint sampling for >1 new candidates
+        num_candidates = len(candidates)
+        sample_func = self._gpmodel.sample_joint if num_candidates > 1 else \
+                self._gpmodel.sample_marginals
+        Y_new_mx = sample_func(X_new_mx, num_samples=num_samples)
+        Y_new = Y_new_mx.asnumpy().astype(X_new.dtype, copy=False).reshape(
+            (num_candidates, -1))
+        return [
+            FantasizedPendingEvaluation(
+                candidate, {self.active_metric: y_new.reshape((1, -1))})
+            for candidate, y_new in zip(candidates, Y_new)
+        ]
 
     def _current_best_filter_candidates(self, candidates):
         hp_ranges = self.state.hp_ranges
         if isinstance(hp_ranges, HyperparameterRanges_CS):
             candidates = hp_ranges.filter_for_last_pos_value(candidates)
-            assert candidates, \
-                "state.hp_ranges does not contain any candidates " + \
-                "(labeled or pending) with resource attribute " + \
-                "'{}' = {}".format(
-                    hp_ranges.name_last_pos, hp_ranges.value_for_last_pos)
+            assert candidates, (
+                "state.hp_ranges does not contain any candidates "
+                + "(labeled or pending) with resource attribute "
+                + f"'{hp_ranges.name_last_pos}' = {hp_ranges.value_for_last_pos}"
+            )
+
         return candidates

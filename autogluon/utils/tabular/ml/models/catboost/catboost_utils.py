@@ -61,11 +61,8 @@ class MulticlassCustomMetric(CustomMetric):
         y_pred_proba = self._get_y_pred_proba(approxes=approxes)
         if self.needs_pred_proba:
             raise NotImplementedError('Custom Catboost Multiclass proba metrics are not supported by AutoGluon.')
-            # y_pred_proba = y_pred_proba.reshape(len(np.unique(np.array(target))), -1).T
-            # score = self.metric(np.array(target), y_pred_proba)  # This doesn't work at the moment because catboost returns some strange valeus in approxes which are not the probabilities
-        else:
-            y_pred = self._get_y_pred(y_pred_proba=y_pred_proba)
-            score = self.metric(np.array(target), y_pred)
+        y_pred = self._get_y_pred(y_pred_proba=y_pred_proba)
+        score = self.metric(np.array(target), y_pred)
 
         return score, 1
 

@@ -135,7 +135,7 @@ def _apply_lbfgs_internal(
     # Run L-BFGS-B
     LBFGS_tol = kwargs.get("tol", default_LBFGS_tol)
     LBFGS_maxiter = kwargs.get("maxiter", default_LBFGS_maxiter)
-    LBFGS_callback = kwargs.get("callback", None)
+    LBFGS_callback = kwargs.get("callback")
     ret_info = None
     try:
         output = optimize.minimize(mx_objective,
@@ -194,10 +194,7 @@ def _deep_copy_arg_dict(input_arg_dict):
     :param input_arg_dict:
     :return: deep copy of input_arg_dict
     """
-    output_arg_dict = {}
-    for name, param in input_arg_dict.items():
-        output_arg_dict[name] = param.copy()
-    return output_arg_dict
+    return {name: param.copy() for name, param in input_arg_dict.items()}
 
 
 def _inplace_arg_dict_randomization(arg_dict, mean_arg_dict, bounds, std=STARTING_POINT_RANDOMIZATION_STD):

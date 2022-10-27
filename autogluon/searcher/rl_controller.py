@@ -50,12 +50,16 @@ class RLSearcher(BaseSearcher):
             self.controller._prefetch()
 
     def __repr__(self):
-        reprstr = self.__class__.__name__ + '(' +  \
-            'Number of Trials: {}.'.format(len(self._results)) + \
-            'Best Config: {}'.format(self.get_best_config()) + \
-            'Best Reward: {}'.format(self.get_best_reward()) + \
-            ')'
-        return reprstr
+        return (
+            (
+                (
+                    f'{self.__class__.__name__}('
+                    + f'Number of Trials: {len(self._results)}.'
+                )
+                + f'Best Config: {self.get_best_config()}'
+            )
+            + f'Best Reward: {self.get_best_reward()}'
+        ) + ')'
 
     def get_config(self, **kwargs):
         return self.controller.sample()[0]
@@ -156,10 +160,7 @@ class LSTMController(BaseController):
         self.static_inputs = keydefaultdict(_get_default_hidden)
 
     def forward(self, inputs, hidden, block_idx, is_embed):
-        if not is_embed:
-            embed = self.encoder(inputs)
-        else:
-            embed = inputs
+        embed = inputs if is_embed else self.encoder(inputs)
         _, (hx, cx) = self.lstm(embed, hidden)
 
         logits = self.decoders[block_idx](hx)
@@ -231,11 +232,10 @@ class LSTMController(BaseController):
                 config[k] = int(choice)
             configs.append(config)
 
-        if with_details:
-            entropies = F.stack(*entropies, axis=1) if with_entropy else entropies
-            return configs, F.stack(*log_probs, axis=1), entropies
-        else:
+        if not with_details:
             return configs
+        entropies = F.stack(*entropies, axis=1) if with_entropy else entropies
+        return configs, F.stack(*log_probs, axis=1), entropies
 
 
 class Alpha(mx.gluon.Block):
@@ -338,11 +338,10 @@ class AttenController(BaseController):
                 config[k] = int(choice)
             configs.append(config)
 
-        if with_details:
-            entropies = F.stack(*entropies, axis=1) if with_entropy else entropies
-            return configs, F.stack(*log_probs, axis=1), entropies
-        else:
+        if not with_details:
             return configs
+        entropies = F.stack(*entropies, axis=1) if with_entropy else entropies
+        return configs, F.stack(*log_probs, axis=1), entropies
 
 
 class AlphaController(BaseController):
@@ -360,7 +359,7 @@ class AlphaController(BaseController):
 
         # controller lstm
         self.decoders = nn.Sequential()
-        for idx, size in enumerate(self.num_tokens):
+        for size in self.num_tokens:
             self.decoders.add(Alpha((size,)))
 
     def inference(self):
@@ -411,8 +410,7 @@ class AlphaController(BaseController):
                 config[k] = int(choice)
             configs.append(config)
 
-        if with_details:
-            entropies = F.stack(*entropies, axis=1) if with_entropy else entropies
-            return configs, F.stack(*log_probs, axis=1), entropies
-        else:
+        if not with_details:
             return configs
+        entropies = F.stack(*entropies, axis=1) if with_entropy else entropies
+        return configs, F.stack(*log_probs, axis=1), entropies

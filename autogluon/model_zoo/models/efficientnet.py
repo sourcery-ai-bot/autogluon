@@ -97,25 +97,88 @@ class EfficientNet(HybridBlock):
 
 def get_efficientnet_blockargs():
     """ Creates a predefined efficientnet model, which searched by original paper. """
-    blocks_args = [
-        EasyDict(kernel=3, num_repeat=1, channels=16, expand_ratio=1, stride=1, se_ratio=0.25, in_channels=32),
-        EasyDict(kernel=3, num_repeat=2, channels=24, expand_ratio=6, stride=2, se_ratio=0.25, in_channels=16),
-        EasyDict(kernel=5, num_repeat=2, channels=40, expand_ratio=6, stride=2, se_ratio=0.25, in_channels=24),
-        EasyDict(kernel=3, num_repeat=3, channels=80, expand_ratio=6, stride=2, se_ratio=0.25, in_channels=40),
-        EasyDict(kernel=5, num_repeat=3, channels=112, expand_ratio=6, stride=1, se_ratio=0.25, in_channels=80),
-        EasyDict(kernel=5, num_repeat=4, channels=192, expand_ratio=6, stride=2, se_ratio=0.25, in_channels=112),
-        EasyDict(kernel=3, num_repeat=1, channels=320, expand_ratio=6, stride=1, se_ratio=0.25, in_channels=192),
+    return [
+        EasyDict(
+            kernel=3,
+            num_repeat=1,
+            channels=16,
+            expand_ratio=1,
+            stride=1,
+            se_ratio=0.25,
+            in_channels=32,
+        ),
+        EasyDict(
+            kernel=3,
+            num_repeat=2,
+            channels=24,
+            expand_ratio=6,
+            stride=2,
+            se_ratio=0.25,
+            in_channels=16,
+        ),
+        EasyDict(
+            kernel=5,
+            num_repeat=2,
+            channels=40,
+            expand_ratio=6,
+            stride=2,
+            se_ratio=0.25,
+            in_channels=24,
+        ),
+        EasyDict(
+            kernel=3,
+            num_repeat=3,
+            channels=80,
+            expand_ratio=6,
+            stride=2,
+            se_ratio=0.25,
+            in_channels=40,
+        ),
+        EasyDict(
+            kernel=5,
+            num_repeat=3,
+            channels=112,
+            expand_ratio=6,
+            stride=1,
+            se_ratio=0.25,
+            in_channels=80,
+        ),
+        EasyDict(
+            kernel=5,
+            num_repeat=4,
+            channels=192,
+            expand_ratio=6,
+            stride=2,
+            se_ratio=0.25,
+            in_channels=112,
+        ),
+        EasyDict(
+            kernel=3,
+            num_repeat=1,
+            channels=320,
+            expand_ratio=6,
+            stride=1,
+            se_ratio=0.25,
+            in_channels=192,
+        ),
     ]
-    return blocks_args
 
 def get_efficientnet(dropout_rate=None, num_classes=None, width_coefficient=None, depth_coefficient=None,
                      depth_divisor=None, min_depth=None, drop_connect_rate=None, input_size=224, **kwargs):
 
     blocks_args = get_efficientnet_blockargs()
-    model = EfficientNet(blocks_args, dropout_rate, num_classes, width_coefficient,
-                         depth_coefficient, depth_divisor, min_depth, drop_connect_rate,
-                         input_size, **kwargs)
-    return model
+    return EfficientNet(
+        blocks_args,
+        dropout_rate,
+        num_classes,
+        width_coefficient,
+        depth_coefficient,
+        depth_divisor,
+        min_depth,
+        drop_connect_rate,
+        input_size,
+        **kwargs
+    )
 
 def get_efficientnet_b0(pretrained=False, dropout_rate=0.2, classes=1000, width_coefficient=1.0, depth_coefficient=1.0,
                         depth_divisor=8, min_depth=None, drop_connect_rate=0.2, input_size=224, ctx=mx.cpu(),

@@ -61,13 +61,12 @@ class Classifier(BasePredictor):
         model_params = state_dict['model_params']
         ensemble = state_dict['ensemble']
 
-        if ensemble <= 1:
-            model_args = copy.deepcopy(args)
-            model_args.update(results['best_config'])
-            model = get_network(args.net, num_classes=results['num_classes'], ctx=mx.cpu(0))
-            update_params(model, model_params)
-        else:
+        if ensemble > 1:
             raise NotImplemented
+        model_args = copy.deepcopy(args)
+        model_args.update(results['best_config'])
+        model = get_network(args.net, num_classes=results['num_classes'], ctx=mx.cpu(0))
+        update_params(model, model_params)
         return cls(model, results, eval_func, scheduler_checkpoint, args,
                    ensemble, format_results=False)
 
@@ -131,11 +130,10 @@ class Classifier(BasePredictor):
             proba = self.predict_proba(img)
             if ensemble:
                 return proba
-            else:
-                ind = mx.nd.argmax(proba, axis=1).astype('int')
-                idx = mx.nd.stack(mx.nd.arange(proba.shape[0], ctx=proba.context), ind.astype('float32'))
-                probai = mx.nd.gather_nd(proba, idx)
-                return ind, probai, proba
+            ind = mx.nd.argmax(proba, axis=1).astype('int')
+            idx = mx.nd.stack(mx.nd.arange(proba.shape[0], ctx=proba.context), ind.astype('float32'))
+            probai = mx.nd.gather_nd(proba, idx)
+            return ind, probai, proba
 
         def avg_prediction(different_dataset, threshold=0.001):
             result = defaultdict(list)
@@ -144,7 +142,7 @@ class Classifier(BasePredictor):
                 for j in range(len(different_dataset[0])):
                     result[j].append(different_dataset[i][j])
 
-            for c in result.keys():
+            for c in result:
                 proba_all = sum([*result[c]]) / len(different_dataset)
                 proba_all = (proba_all >= threshold) * proba_all
                 ind = mx.nd.argmax(proba_all, axis=1).astype('int')
@@ -248,7 +246,7 @@ class Classifier(BasePredictor):
         for batch in tbar:
             self.eval_func(net, batch, batch_fn, metric, ctx)
             _, test_reward = metric.get()
-            tbar.set_description('{}: {}'.format(args.metric, test_reward))
+            tbar.set_description(f'{args.metric}: {test_reward}')
         _, test_reward = metric.get()
         return test_reward
 

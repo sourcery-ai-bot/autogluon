@@ -219,7 +219,7 @@ def pac_score(solution, prediction):
         elif len(solution.shape) == 1:
             pass
         else:
-            raise ValueError('Solution.shape %s' % solution.shape)
+            raise ValueError(f'Solution.shape {solution.shape}')
 
         # Need to create a multiclass solution and a multiclass predictions
         max_class = prediction.shape[1] - 1

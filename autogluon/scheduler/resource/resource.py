@@ -38,12 +38,11 @@ class Resources(object):
         self.ready = True
 
     def __repr__(self):
-        reprstr = self.__class__.__name__ + '(' \
-            + 'nCPUs = ' + str(self.num_cpus)
+        reprstr = f'{self.__class__.__name__}(nCPUs = {str(self.num_cpus)}'
         if len(self.cpu_ids) > 0:
             reprstr += ', CPU_IDs = {' + str(self.cpu_ids) + '}'
         if self.num_gpus > 0:
-            reprstr += ', nGPUs = ' + str(self.num_gpus)
+            reprstr += f', nGPUs = {str(self.num_gpus)}'
         if len(self.gpu_ids) > 0:
             reprstr += ', GPU_IDs = {' + str(self.gpu_ids) + '}'
         reprstr += ')'
@@ -78,12 +77,13 @@ class DistributedResource(Resources):
 
     def __repr__(self):
         reprstr = self.__class__.__name__ + '(\n\t'
-        if self.node: reprstr  += 'Node = ' + str(self.node)
+        if self.node:
+            reprstr += f'Node = {str(self.node)}'
         reprstr  += '\n\tnCPUs = ' + str(self.num_cpus)
         if len(self.cpu_ids) > 0:
             reprstr += ', CPU_IDs = {' + str(self.cpu_ids) + '}'
         if self.num_gpus > 0:
-            reprstr += ', nGPUs = ' + str(self.num_gpus)
+            reprstr += f', nGPUs = {str(self.num_gpus)}'
         if len(self.gpu_ids) > 0:
             reprstr += ', GPU_IDs = {' + str(self.gpu_ids) + '}'
         reprstr += ')'

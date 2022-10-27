@@ -27,7 +27,7 @@ _ag_to_lgbm_metric_dict = {
 
 
 def convert_ag_metric_to_lgbm(ag_metric_name, problem_type):
-    return _ag_to_lgbm_metric_dict.get(problem_type, dict()).get(ag_metric_name, None)
+    return _ag_to_lgbm_metric_dict.get(problem_type, {}).get(ag_metric_name, None)
 
 
 

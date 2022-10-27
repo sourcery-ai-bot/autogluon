@@ -71,7 +71,6 @@ class BasePredictor(ABC):
         results_file = output_directory + RESULTS_FILENAME
         predictor = pickle.load(open(filepath, "rb"))
         predictor.results = json.load(open(results_file, 'r'))
-        pass  # Need to load models and set them = predictor.model
 
     @abstractmethod
     def save(self, output_directory):
@@ -84,7 +83,7 @@ class BasePredictor(ABC):
         self.model = None  # Save model separately from Predictor object
         self.results = None  # Save results separately from Predictor object
         pickle.dump(self, open(filepath, 'wb'))
-        logger.info("Predictor saved to file: %s " % filepath)
+        logger.info(f"Predictor saved to file: {filepath} ")
 
     def _save_results(self, output_directory):
         """ Internal helper function: Save results in human-readable file JSON format """
@@ -132,10 +131,12 @@ class BasePredictor(ABC):
                 <= 0 for no output printing, 1 for just high-level summary, 2 for summary and plot, >= 3 for all information contained in results object.
         """
         if verbosity > 0:
-            summary = {}
-            for k in self.results.keys():
-                if k not in ['metadata', 'trial_info']:
-                    summary[k] = self.results[k]
+            summary = {
+                k: self.results[k]
+                for k in self.results.keys()
+                if k not in ['metadata', 'trial_info']
+            }
+
             print("Summary of Fit Process:  ")
             print(summary)
             if len(self.results['metadata']) > 0:
@@ -146,7 +147,7 @@ class BasePredictor(ABC):
             if verbosity > 2:
                 for trial_id in ordered_trials:
                     print("Information about each trial:  ")
-                    print("Trial ID: %s" % trial_id)
+                    print(f"Trial ID: {trial_id}")
                     print(self.results['trial_info'][trial_id])
             if verbosity > 3:
                 # Create plot summaries:
@@ -159,20 +160,18 @@ class BasePredictor(ABC):
             Empty for now, but should be updated during task.fit().
             All tasks should adhere to this same template for consistency.
         """
-        results = {}
-        results['time'] = None  # run-time of task.fit()
-        results['reward_attr'] = 'none'  # (str), the reward attribute used to measure the performance
-        results[results['reward_attr']] = None  # performance of the best trials
-        results['num_trials_completed'] = None  # number of trials completed during task.fit()
-        results['best_hyperparameters'] = None  # hyperparameter values corresponding to the chosen model in self.model
-        results['search_space'] = None  # hyperparameter search space considered in task.fit()
-        results['search_strategy'] = None  # HPO algorithm used (ie. Hyperband, random, BayesOpt). If the HPO algorithm used kwargs, then this should be tuple (HPO_algorithm_string, HPO_kwargs)
+        results = {
+            'time': None,
+            'reward_attr': 'none',
+            results['reward_attr']: None,
+            'num_trials_completed': None,
+            'best_hyperparameters': None,
+            'search_space': None,
+            'search_strategy': None,
+            'metadata': {},
+            'trial_info': {},
+        }
 
-        results['metadata'] = {}  # dict containing other optional metadata with keys. For example:
-        # latency = inference-time of self.model (time for feedforward pass)
-        # memory = amount of memory required by self.model
-
-        results['trial_info'] = {}  # dict with keys = trial_IDs, values = dict of information about each individual trial (length = results['num_trials_completed'])
         """ Example of what one element of this dict must look like: 
 
         results['trial_info'][trial_id] =  {

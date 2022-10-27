@@ -9,9 +9,7 @@ __all__ = ['round_repeats', 'round_filters', 'SamePadding', 'Swish',
 def round_repeats(repeats, depth_coefficient=None):
     """ Round number of filters based on depth multiplier. """
     multiplier = depth_coefficient
-    if not multiplier:
-        return repeats
-    return int(math.ceil(multiplier * repeats))
+    return int(math.ceil(multiplier * repeats)) if multiplier else repeats
 
 def round_filters(filters, width_coefficient=None, depth_divisor=None, min_depth=None):
     """ Calculate and round number of filters based on depth multiplier. """
@@ -98,7 +96,7 @@ class Swish(HybridBlock):
         #return swish(self._beta)(x)
 
     def __repr__(self):
-        return '{} (beta={})'.format(self.__class__.__name__, self._beta)
+        return f'{self.__class__.__name__} (beta={self._beta})'
 
 def _add_conv(out, channels=1, kernel=1, stride=1, pad=0, num_group=1,
               activation='swish', batchnorm=True, input_size=None,

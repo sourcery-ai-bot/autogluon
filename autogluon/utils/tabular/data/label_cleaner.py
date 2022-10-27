@@ -83,18 +83,16 @@ class LabelCleanerMulticlass(LabelCleaner):
             return y
 
     def inverse_transform_proba(self, y):
-        if self.invalid_class_count > 0:
-            y_transformed = np.zeros([len(y), len(self.ordered_class_labels)])
-            y_transformed[:, self.label_index_to_keep] = y
-            return y_transformed
-        else:
+        if self.invalid_class_count <= 0:
             return y
+        y_transformed = np.zeros([len(y), len(self.ordered_class_labels)])
+        y_transformed[:, self.label_index_to_keep] = y
+        return y_transformed
 
     @staticmethod
     def _generate_categorical_mapping(y: Series) -> dict:
         categories = y.astype('category')
-        cat_mappings_dependent_var = dict(enumerate(categories.cat.categories))
-        return cat_mappings_dependent_var
+        return dict(enumerate(categories.cat.categories))
 
 
 # TODO: Expand print statement to multiclass as well
@@ -133,7 +131,11 @@ class LabelCleanerBinary(LabelCleaner):
             logger.log(15, 'Note: For your binary classification, AutoGluon arbitrarily selects which label-value represents positive vs negative class')
         poslabel = [lbl for lbl in self.inv_map.keys() if self.inv_map[lbl] == 1][0]
         neglabel = [lbl for lbl in self.inv_map.keys() if self.inv_map[lbl] == 0][0]
-        logger.log(20, 'Selected class <--> label mapping:  class 1 = %s, class 0 = %s' % (poslabel, neglabel))
+        logger.log(
+            20,
+            f'Selected class <--> label mapping:  class 1 = {poslabel}, class 0 = {neglabel}',
+        )
+
         self.cat_mappings_dependent_var: dict = {v: k for k, v in self.inv_map.items()}
         self.ordered_class_labels_transformed = [0, 1]
         self.ordered_class_labels = [self.cat_mappings_dependent_var[label_transformed] for label_transformed in self.ordered_class_labels_transformed]

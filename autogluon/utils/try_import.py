@@ -5,24 +5,26 @@ def try_import_catboost():
     try:
         import catboost
     except ValueError as e:
-        raise ImportError("Import catboost failed. Numpy version may be outdated, "
-                          "Please ensure numpy version >=1.16.0. If it is not, please try 'pip uninstall numpy; pip install numpy>=1.17.0' Detailed info: {}".format(str(e)))
+        raise ImportError(
+            f"Import catboost failed. Numpy version may be outdated, Please ensure numpy version >=1.16.0. If it is not, please try 'pip uninstall numpy; pip install numpy>=1.17.0' Detailed info: {str(e)}"
+        )
 
 def try_import_catboostdev():  # TODO: remove once Catboost 0.24 is released.
     try:
         import catboost  # Need to first import catboost before catboost_dev and not vice-versa
         import catboost_dev
     except (ValueError, ImportError) as e:
-        raise ImportError("Import catboost_dev failed (needed for distillation with CatBoost models). "
-                          "Make sure you can import catboost and then run: 'pip install catboost-dev'."
-                          "Detailed info: {}".format(str(e)))
+        raise ImportError(
+            f"Import catboost_dev failed (needed for distillation with CatBoost models). Make sure you can import catboost and then run: 'pip install catboost-dev'.Detailed info: {str(e)}"
+        )
 
 def try_import_lightgbm():
     try:
         import lightgbm
     except OSError as e:
-        raise ImportError("Import lightgbm failed. If you are using Mac OSX, "
-                          "Please try 'brew install libomp'. Detailed info: {}".format(str(e)))
+        raise ImportError(
+            f"Import lightgbm failed. If you are using Mac OSX, Please try 'brew install libomp'. Detailed info: {str(e)}"
+        )
 
 def try_import_mxboard():
     try:
@@ -39,11 +41,8 @@ def try_import_mxnet():
         from distutils.version import LooseVersion
 
         if LooseVersion(mx.__version__) < LooseVersion(mx_version):
-            msg = (
-                "Legacy mxnet-mkl=={} detected, some new modules may not work properly. "
-                "mxnet-mkl>={} is required. You can use pip to upgrade mxnet "
-                "`pip install mxnet-mkl --pre --upgrade` "
-                "or `pip install mxnet-cu90mkl --pre --upgrade`").format(mx.__version__, mx_version)
+            msg = f"Legacy mxnet-mkl=={mx.__version__} detected, some new modules may not work properly. mxnet-mkl>={mx_version} is required. You can use pip to upgrade mxnet `pip install mxnet-mkl --pre --upgrade` or `pip install mxnet-cu90mkl --pre --upgrade`"
+
             raise ImportError(msg)
     except ImportError:
         raise ImportError(

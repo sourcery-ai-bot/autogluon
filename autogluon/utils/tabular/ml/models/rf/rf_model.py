@@ -42,12 +42,11 @@ class RFModel(SKLearnModel):
     # TODO: Add in documentation that Categorical default is the first index
     # TODO: enable HPO for RF models
     def _get_default_searchspace(self):
-        spaces = {
+        return {
             # 'n_estimators': Int(lower=10, upper=1000, default=300),
             # 'max_features': Categorical(['auto', 0.5, 0.25]),
             # 'criterion': Categorical(['gini', 'entropy']),
         }
-        return spaces
 
     def _fit(self, X_train, y_train, time_limit=None, **kwargs):
         time_start = time.time()
@@ -66,10 +65,7 @@ class RFModel(SKLearnModel):
 
         # Very rough guess to size of a single tree before training
         if self.problem_type == MULTICLASS:
-            if self.num_classes is None:
-                num_trees_per_estimator = 10  # Guess since it wasn't passed in, could also check y_train for a better value
-            else:
-                num_trees_per_estimator = self.num_classes
+            num_trees_per_estimator = 10 if self.num_classes is None else self.num_classes
         else:
             num_trees_per_estimator = 1
         bytes_per_estimator = num_trees_per_estimator * len(X_train) / 60000 * 1e6  # Underestimates by 3x on ExtraTrees
@@ -80,15 +76,14 @@ class RFModel(SKLearnModel):
             logger.warning(f'\tWarning: Model is expected to require {expected_min_memory_usage * 100} percent of available memory (Estimated before training)...')
             raise NotEnoughMemoryError
 
-        if n_estimators_final > n_estimators_test * 2:
-            if self.problem_type == MULTICLASS:
-                n_estimator_increments = [n_estimators_test, n_estimators_final]
-                hyperparams['warm_start'] = True
-            else:
-                if expected_memory_usage > (0.05 * max_memory_usage_ratio):  # Somewhat arbitrary, consider finding a better value, should it scale by cores?
-                    # Causes ~10% training slowdown, so try to avoid if memory is not an issue
-                    n_estimator_increments = [n_estimators_test, n_estimators_final]
-                    hyperparams['warm_start'] = True
+        if n_estimators_final > n_estimators_test * 2 and (
+            self.problem_type != MULTICLASS
+            and expected_memory_usage > (0.05 * max_memory_usage_ratio)
+            or self.problem_type == MULTICLASS
+        ):
+            # Causes ~10% training slowdown, so try to avoid if memory is not an issue
+            n_estimator_increments = [n_estimators_test, n_estimators_final]
+            hyperparams['warm_start'] = True
 
         hyperparams['n_estimators'] = n_estimator_increments[0]
         self.model = self._model_type(**hyperparams)
@@ -134,7 +129,16 @@ class RFModel(SKLearnModel):
     def hyperparameter_tune(self, X_train, y_train, X_val, y_val, scheduler_options=None, **kwargs):
         fit_model_args = dict(X_train=X_train, y_train=y_train, **kwargs)
         predict_proba_args = dict(X=X_val)
-        model_trial.fit_and_save_model(model=self, params=dict(), fit_args=fit_model_args, predict_proba_args=predict_proba_args, y_val=y_val, time_start=time.time(), time_limit=None)
+        model_trial.fit_and_save_model(
+            model=self,
+            params={},
+            fit_args=fit_model_args,
+            predict_proba_args=predict_proba_args,
+            y_val=y_val,
+            time_start=time.time(),
+            time_limit=None,
+        )
+
         hpo_results = {'total_time': self.fit_time}
         hpo_model_performances = {self.name: self.val_score}
         hpo_models = {self.name: self.path}
@@ -144,5 +148,5 @@ class RFModel(SKLearnModel):
         if self.features is None:
             # TODO: Consider making this raise an exception
             logger.warning('Warning: get_model_feature_importance called when self.features is None!')
-            return dict()
+            return {}
         return dict(zip(self.features, self.model.feature_importances_))

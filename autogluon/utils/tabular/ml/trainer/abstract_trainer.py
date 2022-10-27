@@ -61,20 +61,28 @@ class AbstractTrainer:
             self.stopping_metric = self.eval_metric
 
         self.eval_metric_expects_y_pred = scorer_expects_y_pred(scorer=self.eval_metric)
-        logger.log(25, "AutoGluon will gauge predictive performance using evaluation metric: %s" % self.eval_metric.name)
+        logger.log(
+            25,
+            f"AutoGluon will gauge predictive performance using evaluation metric: {self.eval_metric.name}",
+        )
+
         if not self.eval_metric_expects_y_pred:
             logger.log(25, "This metric expects predicted probabilities rather than predicted class labels, so you'll need to use predict_proba() instead of predict()")
 
         logger.log(20, "To change this, specify the eval_metric argument of fit()")
-        logger.log(25, "AutoGluon will early stop models using evaluation metric: %s" % self.stopping_metric.name)
+        logger.log(
+            25,
+            f"AutoGluon will early stop models using evaluation metric: {self.stopping_metric.name}",
+        )
+
         self.num_classes = num_classes
         self.feature_prune = False # will be set to True if feature-pruning is turned on.
         self.low_memory = low_memory
-        self.bagged_mode = True if kfolds >= 2 else False
+        self.bagged_mode = kfolds >= 2
         if self.bagged_mode:
             self.kfolds = kfolds  # int number of folds to do model bagging, < 2 means disabled
             self.stack_ensemble_levels = stack_ensemble_levels
-            self.stack_mode = True if self.stack_ensemble_levels >= 1 else False
+            self.stack_mode = self.stack_ensemble_levels >= 1
             self.n_repeats = n_repeats
         else:
             self.kfolds = 0
@@ -208,7 +216,7 @@ class AbstractTrainer:
             for level in self.models_level[stack_name].keys():
                 if model_name in self.models_level[stack_name][level]:
                     return level
-        raise ValueError('Model' + str(model_name) + 'does not exist in trainer.')
+        raise ValueError(f'Model{str(model_name)}does not exist in trainer.')
 
     def set_contexts(self, path_context):
         self.path, self.model_paths = self.create_contexts(path_context)
@@ -251,32 +259,35 @@ class AbstractTrainer:
         try:
             if time_limit is not None:
                 if time_limit <= 0:
-                    logging.log(15, 'Skipping ' + str(model.name) + ' due to lack of time remaining.')
+                    logging.log(15, f'Skipping {str(model.name)} due to lack of time remaining.')
                     return model_names_trained
                 time_left_total = self.time_limit - (fit_start_time - self.time_train_start)
-                logging.log(20, 'Fitting model: ' + str(model.name) + ' ...' + ' Training model for up to ' + str(round(time_limit, 2)) + 's of the ' + str(round(time_left_total, 2)) + 's of remaining time.')
+                logging.log(
+                    20,
+                    f'Fitting model: {str(model.name)} ... Training model for up to {str(round(time_limit, 2))}s of the {str(round(time_left_total, 2))}s of remaining time.',
+                )
+
             else:
-                logging.log(20, 'Fitting model: ' + str(model.name) + ' ...')
+                logging.log(20, f'Fitting model: {str(model.name)} ...')
             model = self.train_single(X_train, y_train, X_val, y_val, model, kfolds=kfolds, k_fold_start=k_fold_start, k_fold_end=k_fold_end, n_repeats=n_repeats, n_repeat_start=n_repeat_start, level=level, time_limit=time_limit)
             fit_end_time = time.time()
             if isinstance(model, BaggedEnsembleModel):
-                if model.bagged_mode or isinstance(model, WeightedEnsembleModel):
-                    score = model.score_with_oof(y=y_train)
-                else:
-                    score = None
+                score = (
+                    model.score_with_oof(y=y_train)
+                    if model.bagged_mode
+                    or isinstance(model, WeightedEnsembleModel)
+                    else None
+                )
+
+            elif X_val is not None and y_val is not None:
+                score = model.score(X=X_val, y=y_val)
             else:
-                if X_val is not None and y_val is not None:
-                    score = model.score(X=X_val, y=y_val)
-                else:
-                    score = None
+                score = None
             pred_end_time = time.time()
             if model.fit_time is None:
                 model.fit_time = fit_end_time - fit_start_time
             if model.predict_time is None:
-                if score is None:
-                    model.predict_time = None
-                else:
-                    model.predict_time = pred_end_time - fit_end_time
+                model.predict_time = None if score is None else pred_end_time - fit_end_time
             model.val_score = score
             # TODO: Add recursive=True to avoid repeatedly loading models each time this is called for bagged ensembles (especially during repeated bagging)
             self.save_model(model=model)
@@ -293,7 +304,10 @@ class AbstractTrainer:
         except Exception as err:
             if self.verbosity >= 1:
                 traceback.print_tb(err.__traceback__)
-            logger.exception('Warning: Exception caused %s to fail during training... Skipping this model.' % model.name)
+            logger.exception(
+                f'Warning: Exception caused {model.name} to fail during training... Skipping this model.'
+            )
+
             logger.log(20, err)
             del model
         else:
@@ -336,17 +350,29 @@ class AbstractTrainer:
             model.feature_types_metadata = copy.deepcopy(self.feature_types_metadata)  # TODO: Don't set feature_types_metadata here
         if feature_prune:
             if n_repeat_start != 0:
-                raise ValueError('n_repeat_start must be 0 to feature_prune, value = ' + str(n_repeat_start))
+                raise ValueError(
+                    f'n_repeat_start must be 0 to feature_prune, value = {str(n_repeat_start)}'
+                )
+
             elif k_fold_start != 0:
-                raise ValueError('k_fold_start must be 0 to feature_prune, value = ' + str(k_fold_start))
+                raise ValueError(
+                    f'k_fold_start must be 0 to feature_prune, value = {str(k_fold_start)}'
+                )
+
             self.autotune(X_train=X_train, X_holdout=X_val, y_train=y_train, y_holdout=y_val, model_base=model)  # TODO: Update to use CV instead of holdout
         if hyperparameter_tune:
             if self.scheduler_func is None or self.scheduler_options is None:
                 raise ValueError("scheduler_options cannot be None when hyperparameter_tune = True")
             if n_repeat_start != 0:
-                raise ValueError('n_repeat_start must be 0 to hyperparameter_tune, value = ' + str(n_repeat_start))
+                raise ValueError(
+                    f'n_repeat_start must be 0 to hyperparameter_tune, value = {str(n_repeat_start)}'
+                )
+
             elif k_fold_start != 0:
-                raise ValueError('k_fold_start must be 0 to hyperparameter_tune, value = ' + str(k_fold_start))
+                raise ValueError(
+                    f'k_fold_start must be 0 to hyperparameter_tune, value = {str(k_fold_start)}'
+                )
+
             # hpo_models (dict): keys = model_names, values = model_paths
             try:
                 if isinstance(model, BaggedEnsembleModel):
@@ -392,7 +418,7 @@ class AbstractTrainer:
                 if time_left < time_required:
                     logger.log(15, 'Not enough time left to finish repeated k-fold bagging, stopping early ...')
                     break
-            logger.log(20, 'Repeating k-fold bagging: ' + str(n+1) + '/' + str(n_repeats))
+            logger.log(20, f'Repeating k-fold bagging: {str(n + 1)}/{str(n_repeats)}')
             for i, model in enumerate(models_valid):
                 if isinstance(model, str):
                     model = self.load_model(model)
@@ -405,7 +431,11 @@ class AbstractTrainer:
             models_valid = copy.deepcopy(models_valid_next)
             models_valid_next = []
             repeats_completed += 1
-        logger.log(20, 'Completed ' + str(n_repeat_start + repeats_completed) + '/' + str(n_repeats) + ' k-fold bagging repeats ...')
+        logger.log(
+            20,
+            f'Completed {str(n_repeat_start + repeats_completed)}/{str(n_repeats)} k-fold bagging repeats ...',
+        )
+
         return models_valid
 
     def train_multi_initial(self, X_train, y_train, X_val, y_val, models: List[AbstractModel], kfolds, n_repeats, hyperparameter_tune=True, feature_prune=False, stack_name='core', level=0, time_limit=None):
@@ -468,11 +498,11 @@ class AbstractTrainer:
         if n_repeats is None:
             n_repeats = self.n_repeats
         if (kfolds == 0) and (n_repeats != 1):
-            raise ValueError('n_repeats must be 1 when kfolds is 0, values: (%s, %s)' % (n_repeats, kfolds))
-        if time_limit is None:
-            n_repeats_initial = n_repeats
-        else:
-            n_repeats_initial = 1
+            raise ValueError(
+                f'n_repeats must be 1 when kfolds is 0, values: ({n_repeats}, {kfolds})'
+            )
+
+        n_repeats_initial = n_repeats if time_limit is None else 1
         if n_repeat_start == 0:
             time_start = time.time()
             model_names_trained = self.train_multi_initial(X_train=X_train, y_train=y_train, X_val=X_val, y_val=y_val, models=models, kfolds=kfolds, n_repeats=n_repeats_initial, hyperparameter_tune=hyperparameter_tune, feature_prune=feature_prune,
@@ -532,7 +562,6 @@ class AbstractTrainer:
         return core_models + aux_models
 
     def stack_new_level_core(self, X, y, X_val=None, y_val=None, models=None, level=1, stack_name='core', kfolds=None, n_repeats=None, hyperparameter_tune=False, feature_prune=False, time_limit=None, save_bagged_folds=None, stacker_type=StackerEnsembleModel, extra_ag_args_fit=None):
-        use_orig_features = True
         if models is None:
             models = self.get_models(self.hyperparameters, level=level, extra_ag_args_fit=extra_ag_args_fit)
         if kfolds is None:
@@ -551,7 +580,8 @@ class AbstractTrainer:
                     logger.log(20, 'No base models to train on, skipping stack level...')
                     return
             else:
-                raise AssertionError('Stack level cannot be negative! level = %s' % level)
+                raise AssertionError(f'Stack level cannot be negative! level = {level}')
+            use_orig_features = True
             models = [
                 stacker_type(path=self.path, name=model.name + '_STACKER_l' + str(level), model_base=model, base_model_names=base_model_names,
                                      base_model_paths_dict=base_model_paths, base_model_types_dict=base_model_types, use_orig_features=use_orig_features,
@@ -672,11 +702,10 @@ class AbstractTrainer:
             return self.eval_metric(y, y_pred_proba_ensemble)
 
     def score_with_y_pred_proba(self, y, y_pred_proba):
-        if self.eval_metric_expects_y_pred:
-            y_pred = get_pred_from_proba(y_pred_proba=y_pred_proba, problem_type=self.problem_type)
-            return self.eval_metric(y, y_pred)
-        else:
+        if not self.eval_metric_expects_y_pred:
             return self.eval_metric(y, y_pred_proba)
+        y_pred = get_pred_from_proba(y_pred_proba=y_pred_proba, problem_type=self.problem_type)
+        return self.eval_metric(y, y_pred)
 
     def autotune(self, X_train, X_holdout, y_train, y_holdout, model_base: AbstractModel):
         model_base.feature_prune(X_train, X_holdout, y_train, y_holdout)
@@ -738,11 +767,10 @@ class AbstractTrainer:
 
             if fit:
                 model_type = self.model_types[model_name]
-                if issubclass(model_type, BaggedEnsembleModel):
-                    model_path = self.model_paths[model_name]
-                    model_pred_proba_dict[model_name] = model_type.load_oof(path=model_path)
-                else:
+                if not issubclass(model_type, BaggedEnsembleModel):
                     raise AssertionError(f'Model {model.name} must be a BaggedEnsembleModel to return oof_pred_proba')
+                model_path = self.model_paths[model_name]
+                model_pred_proba_dict[model_name] = model_type.load_oof(path=model_path)
             else:
                 model = self.load_model(model_name=model_name)
                 if isinstance(model, StackerEnsembleModel):
@@ -778,7 +806,10 @@ class AbstractTrainer:
     #  Remove in future as it limits flexibility in stacker inputs during training
     def get_inputs_to_stacker(self, X, level_start, level_end, model_levels=None, y_pred_probas=None, fit=False):
         if level_start > level_end:
-            raise AssertionError('level_start cannot be greater than level end:' + str(level_start) + ', ' + str(level_end))
+            raise AssertionError(
+                f'level_start cannot be greater than level end:{str(level_start)}, {str(level_end)}'
+            )
+
         if (level_start == 0) and (level_end == 0):
             return X
         if fit:
@@ -802,15 +833,16 @@ class AbstractTrainer:
             else:
                 X = X_stacker
         else:
-            dummy_stackers = {}
-            for level in range(level_start, level_end+1):
-                if level >= 1:
-                    dummy_stackers[level] = self._get_dummy_stacker(level=level, model_levels=model_levels, use_orig_features=True)
+            dummy_stackers = {
+                level: self._get_dummy_stacker(
+                    level=level, model_levels=model_levels, use_orig_features=True
+                )
+                for level in range(level_start, level_end + 1)
+                if level >= 1
+            }
+
             for level in range(level_start, level_end):
-                if level >= 1:
-                    cols_to_drop = dummy_stackers[level].stack_columns
-                else:
-                    cols_to_drop = []
+                cols_to_drop = dummy_stackers[level].stack_columns if level >= 1 else []
                 X = dummy_stackers[level+1].preprocess(X=X, preprocess=False, fit=False, compute_base_preds=True)
                 if len(cols_to_drop) > 0:
                     X = X.drop(cols_to_drop, axis=1)

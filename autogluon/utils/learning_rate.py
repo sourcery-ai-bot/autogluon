@@ -3,7 +3,7 @@ from gluoncv.utils import LRSequential, LRScheduler
 class LR_params:
     def __init__(self, *args):
         lr, lr_mode, num_epochs, num_batches, lr_decay_epoch, \
-        lr_decay, lr_decay_period, warmup_epochs, warmup_lr= args
+            lr_decay, lr_decay_period, warmup_epochs, warmup_lr= args
         self._num_batches = num_batches
         self._lr_decay = lr_decay
         self._lr_decay_period = lr_decay_period

@@ -132,8 +132,7 @@ class IncrementalUpdateGPPosteriorState(GaussProcPosteriorState):
         self.noise_variance = noise_variance if self.F == mx.sym \
             else noise_variance.copy()
 
-    def update(self, feature: Tensor, target: Tensor) -> \
-            'IncrementalUpdateGPPosteriorState':
+    def update(self, feature: Tensor, target: Tensor) -> 'IncrementalUpdateGPPosteriorState':
         """
         :param feature: Additional input xstar, shape (1, d)
         :param target: Additional target ystar, shape (1, m)
@@ -144,29 +143,29 @@ class IncrementalUpdateGPPosteriorState(GaussProcPosteriorState):
         feature = F.reshape(feature, shape=(1, -1))
         target = F.reshape(target, shape=(1, -1))
         if self.is_ndarray():
-            assert feature.shape[1] == self.features.shape[1], \
-                "feature.shape[1] = {} != {} = self.features.shape[1]".format(
-                    feature.shape[1], self.features.shape[1])
-            assert target.shape[1] == self.pred_mat.shape[1], \
-                "target.shape[1] = {} != {} = self.pred_mat.shape[1]".format(
-                    target.shape[1], self.pred_mat.shape[1])
+            assert (
+                feature.shape[1] == self.features.shape[1]
+            ), f"feature.shape[1] = {feature.shape[1]} != {self.features.shape[1]} = self.features.shape[1]"
+
+            assert (
+                target.shape[1] == self.pred_mat.shape[1]
+            ), f"target.shape[1] = {target.shape[1]} != {self.pred_mat.shape[1]} = self.pred_mat.shape[1]"
+
         chol_fact_new, pred_mat_new = cholesky_update(
             F, self.features, self.chol_fact, self.pred_mat, self.mean,
             self.kernel, self.noise_variance, feature, target)
         features_new = F.concat(self.features, feature, dim=0)
-        # Create object by calling internal constructor
-        state_new = IncrementalUpdateGPPosteriorState(
+        return IncrementalUpdateGPPosteriorState(
             features=features_new,
             targets=None,
             mean=self.mean,
             kernel=self.kernel,
             noise_variance=self.noise_variance,
             chol_fact=chol_fact_new,
-            pred_mat=pred_mat_new)
-        return state_new
+            pred_mat=pred_mat_new,
+        )
 
-    def expand_fantasies(self, num_fantasies: int) -> \
-            'IncrementalUpdateGPPosteriorState':
+    def expand_fantasies(self, num_fantasies: int) -> 'IncrementalUpdateGPPosteriorState':
         """
         If this posterior has been created with a single targets vector,
         shape (n, 1), use this to duplicate this vector m = num_fantasies
@@ -180,14 +179,14 @@ class IncrementalUpdateGPPosteriorState(GaussProcPosteriorState):
         F = self.F
         if self.is_ndarray():
             assert self.pred_mat.shape[1] == 1, \
-                "Method requires posterior without fantasy samples"
+                    "Method requires posterior without fantasy samples"
         pred_mat_new = F.concat(*([self.pred_mat] * num_fantasies), dim=1)
-        state_new = IncrementalUpdateGPPosteriorState(
+        return IncrementalUpdateGPPosteriorState(
             features=self.features,
             targets=None,
             mean=self.mean,
             kernel=self.kernel,
             noise_variance=self.noise_variance,
             chol_fact=self.chol_fact,
-            pred_mat=pred_mat_new)
-        return state_new
+            pred_mat=pred_mat_new,
+        )

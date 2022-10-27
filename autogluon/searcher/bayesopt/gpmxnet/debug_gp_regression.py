@@ -32,16 +32,16 @@ class DebugGPRegression(object):
         for param in params:
             arg_dict[param.name] = param.data(ctx=mx.cpu())
         fname = self._filename()
-        mx.nd.save(fname + '_args.nd', arg_dict)
-        with open(fname + '_args.txt', 'w') as f:
+        mx.nd.save(f'{fname}_args.nd', arg_dict)
+        with open(f'{fname}_args.txt', 'w') as f:
             self._write_meta(f)
             for param, encoding in param_encoding_pairs:
                 f.write(param_to_pretty_string(param, encoding) + '\n')
 
     def store_value(self, value):
         fname = self._filename()
-        with open(fname + '_value.txt', 'w') as f:
-            f.write('value = {}\n'.format(value))
+        with open(f'{fname}_value.txt', 'w') as f:
+            f.write(f'value = {value}\n')
             self._write_meta(f)
         # Advance counters
         self.global_counter += 1
@@ -51,7 +51,7 @@ class DebugGPRegression(object):
         return self.fname_msk.format(self.global_counter % self.rolling_size)
 
     def _write_meta(self, f):
-        f.write('optim_counter = {}\n'.format(self.optim_counter))
-        f.write('local_counter = {}\n'.format(self.local_counter))
-        f.write('global_counter = {}\n'.format(self.global_counter))
-        f.write('time = {}\n'.format(time.time()))
+        f.write(f'optim_counter = {self.optim_counter}\n')
+        f.write(f'local_counter = {self.local_counter}\n')
+        f.write(f'global_counter = {self.global_counter}\n')
+        f.write(f'time = {time.time()}\n')

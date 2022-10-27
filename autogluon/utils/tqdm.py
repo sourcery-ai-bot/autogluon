@@ -6,63 +6,61 @@ from tqdm import tqdm as base
 __all__ = ['tqdm']
 
 
-if True:  # pragma: no cover
-    # import IPython/Jupyter base widget and display utilities
-    IPY = 0
-    IPYW = 0
-    try:  # IPython 4.x
-        import ipywidgets
-        IPY = 4
+# import IPython/Jupyter base widget and display utilities
+IPY = 0
+IPYW = 0
+try:  # IPython 4.x
+    import ipywidgets
+    IPY = 4
+    try:
+        IPYW = int(ipywidgets.__version__.split('.')[0])
+    except AttributeError:  # __version__ may not exist in old versions
+        pass
+except ImportError:  # IPython 3.x / 2.x
+    IPY = 32
+    import warnings
+    with warnings.catch_warnings():
+        ipy_deprecation_msg = "The `IPython.html` package" \
+                              " has been deprecated"
+        warnings.filterwarnings('error', message=f".*{ipy_deprecation_msg}.*")
         try:
-            IPYW = int(ipywidgets.__version__.split('.')[0])
-        except AttributeError:  # __version__ may not exist in old versions
-            pass
-    except ImportError:  # IPython 3.x / 2.x
-        IPY = 32
-        import warnings
-        with warnings.catch_warnings():
-            ipy_deprecation_msg = "The `IPython.html` package" \
-                                  " has been deprecated"
-            warnings.filterwarnings('error',
-                                    message=".*" + ipy_deprecation_msg + ".*")
+            import IPython.html.widgets as ipywidgets
+        except Warning as e:
+            if ipy_deprecation_msg not in str(e):
+                raise
+            warnings.simplefilter('ignore')
             try:
-                import IPython.html.widgets as ipywidgets
-            except Warning as e:
-                if ipy_deprecation_msg not in str(e):
-                    raise
-                warnings.simplefilter('ignore')
-                try:
-                    import IPython.html.widgets as ipywidgets  # NOQA
-                except ImportError:
-                    pass
+                import IPython.html.widgets as ipywidgets  # NOQA
             except ImportError:
                 pass
-
-    try:  # IPython 4.x / 3.x
-        if IPY == 32:
-            from IPython.html.widgets import IntProgress, HBox, HTML, VBox
-            IPY = 3
-        else:
-            from ipywidgets import IntProgress, HBox, HTML, VBox
-    except ImportError:
-        try:  # IPython 2.x
-            from IPython.html.widgets import IntProgressWidget as IntProgress
-            from IPython.html.widgets import ContainerWidget as HBox
-            from IPython.html.widgets import HTML
-            IPY = 2
         except ImportError:
-            IPY = 0
+            pass
 
-    try:
-        from IPython.display import display  # , clear_output
+try:  # IPython 4.x / 3.x
+    if IPY == 32:
+        from IPython.html.widgets import IntProgress, HBox, HTML, VBox
+        IPY = 3
+    else:
+        from ipywidgets import IntProgress, HBox, HTML, VBox
+except ImportError:
+    try:  # IPython 2.x
+        from IPython.html.widgets import IntProgressWidget as IntProgress
+        from IPython.html.widgets import ContainerWidget as HBox
+        from IPython.html.widgets import HTML
+        IPY = 2
     except ImportError:
-        pass
+        IPY = 0
 
-    # HTML encoding
-    try:  # Py3
-        from html import escape
-    except ImportError:  # Py2
-        from cgi import escape
+try:
+    from IPython.display import display  # , clear_output
+except ImportError:
+    pass
+
+# HTML encoding
+try:  # Py3
+    from html import escape
+except ImportError:  # Py2
+    from cgi import escape
 
 
 class mytqdm(base):
@@ -101,7 +99,7 @@ class mytqdm(base):
         ptext = HTML()
         timg = HTML()
         if img:
-            timg.value = "<br>%s<br>" % img
+            timg.value = f"<br>{img}<br>"
         # Only way to place text to the right of the bar is to use a container
         container = VBox([HBox(children=[pbar, ptext]), timg])
         # Prepare layout
@@ -139,7 +137,7 @@ class mytqdm(base):
         pbar.value = self.n
 
         if self.img:
-            timg.value = "<br>%s<br>" % self.img
+            timg.value = f"<br>{self.img}<br>"
 
         if msg:
             # html escape special characters (like '&')
@@ -164,11 +162,8 @@ class mytqdm(base):
                 ptext.value = right
 
         # Change bar style
-        if bar_style:
-            # Hack-ish way to avoid the danger bar_style being overridden by
-            # success because the bar gets closed after the error...
-            if not (pbar.bar_style == 'danger' and bar_style == 'success'):
-                pbar.bar_style = bar_style
+        if bar_style and (pbar.bar_style != 'danger' or bar_style != 'success'):
+            pbar.bar_style = bar_style
 
         # Special signal to close the bar
         if close and pbar.bar_style != 'danger':  # hide only if no error
@@ -211,10 +206,7 @@ class mytqdm(base):
 
     def __iter__(self, *args, **kwargs):
         try:
-            for obj in super(mytqdm, self).__iter__(*args, **kwargs):
-                # return super(tqdm...) will not catch exception
-                yield obj
-        # NB: except ... [ as ...] breaks IPython async KeyboardInterrupt
+            yield from super(mytqdm, self).__iter__(*args, **kwargs)
         except:  # NOQA
             self.sp(bar_style='danger')
             raise
@@ -236,11 +228,10 @@ class mytqdm(base):
             # in manual mode: if n < total, things probably got wrong
             if self.total and self.n < self.total:
                 self.sp(bar_style='danger')
+            elif self.leave:
+                self.sp(bar_style='success')
             else:
-                if self.leave:
-                    self.sp(bar_style='success')
-                else:
-                    self.sp(close=True)
+                self.sp(close=True)
 
     def moveto(self, *args, **kwargs):
         # void -> avoid extraneous `\n` in IPython output cell

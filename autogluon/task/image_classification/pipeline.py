@@ -47,11 +47,7 @@ def train_image_classification(args, reporter):
         for k, v in net.collect_params('.*beta|.*gamma|.*bias').items():
             v.wd_mult = 0.0
 
-    if args.tricks.label_smoothing or args.tricks.mixup:
-        sparse_label_loss = False
-    else:
-        sparse_label_loss = True
-
+    sparse_label_loss = not args.tricks.label_smoothing and not args.tricks.mixup
     if distillation:
         teacher = target_kwargs.get_teacher
 

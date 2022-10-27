@@ -54,10 +54,7 @@ class BaggedEnsembleModel(AbstractModel):
         return self.is_fit() and self.save_bagged_folds
 
     def is_stratified(self):
-        if self.problem_type == REGRESSION or self.problem_type == SOFTCLASS:
-            return False
-        else:
-            return True
+        return self.problem_type not in [REGRESSION, SOFTCLASS]
 
     def is_fit(self):
         return len(self.models) != 0
@@ -85,8 +82,7 @@ class BaggedEnsembleModel(AbstractModel):
         return model.preprocess(X)
 
     def _fit(self, X, y, k_fold=5, k_fold_start=0, k_fold_end=None, n_repeats=1, n_repeat_start=0, time_limit=None, **kwargs):
-        if k_fold < 1:
-            k_fold = 1
+        k_fold = max(k_fold, 1)
         if k_fold_end is None:
             k_fold_end = k_fold
 
@@ -190,14 +186,13 @@ class BaggedEnsembleModel(AbstractModel):
                 fold_model.set_contexts(self.path + fold_model.name + os.path.sep)
                 fold_model.fit(X_train=X_train, y_train=y_train, X_val=X_val, y_val=y_val, time_limit=time_limit_fold, **kwargs)
                 time_train_end_fold = time.time()
-                if time_limit is not None:  # Check to avoid unnecessarily predicting and saving a model when an Exception is going to be raised later
-                    if i != (fold_end - 1):
-                        time_elapsed = time.time() - time_start
-                        time_left = time_limit - time_elapsed
-                        expected_time_required = time_elapsed * folds_to_fit / (folds_finished + 1)
-                        expected_remaining_time_required = expected_time_required * (folds_left - 1) / folds_to_fit
-                        if expected_remaining_time_required > time_left:
-                            raise TimeLimitExceeded
+                if time_limit is not None and i != (fold_end - 1):
+                    time_elapsed = time.time() - time_start
+                    time_left = time_limit - time_elapsed
+                    expected_time_required = time_elapsed * folds_to_fit / (folds_finished + 1)
+                    expected_remaining_time_required = expected_time_required * (folds_left - 1) / folds_to_fit
+                    if expected_remaining_time_required > time_left:
+                        raise TimeLimitExceeded
                 pred_proba = fold_model.predict_proba(X_val)
                 time_predict_end_fold = time.time()
                 fold_model.fit_time = time_train_end_fold - time_start_fold
@@ -270,7 +265,10 @@ class BaggedEnsembleModel(AbstractModel):
         for n_repeat, k in enumerate(self._k_per_n_repeat):
             if is_oof:
                 if not self.bagged_mode:
-                    raise AssertionError('Model trained with no validation data cannot get feature importances on training data, please specify new test data to compute feature importances (model=%s)' % self.name)
+                    raise AssertionError(
+                        f'Model trained with no validation data cannot get feature importances on training data, please specify new test data to compute feature importances (model={self.name})'
+                    )
+
                 kfolds = generate_kfold(X=X, y=y, n_splits=k, stratified=self.is_stratified(), random_state=self._random_state, n_repeats=n_repeat + 1)
                 cur_kfolds = kfolds[n_repeat * k:(n_repeat+1) * k]
             else:
@@ -289,8 +287,6 @@ class BaggedEnsembleModel(AbstractModel):
         for i, result in enumerate(feature_importance_fold_list):
             feature_importance_fold_list[i] = feature_importance_fold_list[i] * fold_weights[i]
 
-        feature_importance = pd.concat(feature_importance_fold_list, axis=1, sort=True).sum(1).sort_values(ascending=False)
-
         # TODO: Consider utilizing z scores and stddev to make threshold decisions
         # stddev = pd.concat(feature_importance_fold_list, axis=1, sort=True).std(1).sort_values(ascending=False)
         # feature_importance_df = pd.DataFrame(index=feature_importance.index)
@@ -298,7 +294,11 @@ class BaggedEnsembleModel(AbstractModel):
         # feature_importance_df['stddev'] = stddev
         # feature_importance_df['z'] = feature_importance_df['importance'] / feature_importance_df['stddev']
 
-        return feature_importance
+        return (
+            pd.concat(feature_importance_fold_list, axis=1, sort=True)
+            .sum(1)
+            .sort_values(ascending=False)
+        )
 
     def load_child(self, model, verbose=False) -> AbstractModel:
         if isinstance(model, str):
@@ -328,7 +328,7 @@ class BaggedEnsembleModel(AbstractModel):
             for child in self.models
         ]
 
-        model_params_compressed = dict()
+        model_params_compressed = {}
         for param in model_params_list[0].keys():
             model_param_vals = [model_params[param] for model_params in model_params_list]
             if all(isinstance(val, bool) for val in model_param_vals):
@@ -348,10 +348,7 @@ class BaggedEnsembleModel(AbstractModel):
         return model_params_compressed
 
     def _get_model_base(self):
-        if self.model_base is None:
-            return self.load_model_base()
-        else:
-            return self.model_base
+        return self.load_model_base() if self.model_base is None else self.model_base
 
     def _add_child_times_to_bag(self, model):
         if self.fit_time is None:
@@ -391,9 +388,7 @@ class BaggedEnsembleModel(AbstractModel):
         return cls._oof_pred_proba_func(oof_pred_proba=oof_pred_proba, oof_pred_model_repeats=oof_pred_model_repeats)
 
     def _load_oof(self):
-        if self._oof_pred_proba is not None:
-            pass
-        else:
+        if self._oof_pred_proba is None:
             oof = load_pkl.load(path=self.path + 'utils' + os.path.sep + self._oof_filename)
             self._oof_pred_proba = oof['_oof_pred_proba']
             self._oof_pred_model_repeats = oof['_oof_pred_model_repeats']
@@ -481,10 +476,7 @@ class BaggedEnsembleModel(AbstractModel):
         children_info = self._get_child_info()
         child_memory_sizes = [child['memory_size'] for child in children_info.values()]
         sum_memory_size_child = sum(child_memory_sizes)
-        if child_memory_sizes:
-            max_memory_size_child = max(child_memory_sizes)
-        else:
-            max_memory_size_child = 0
+        max_memory_size_child = max(child_memory_sizes, default=0)
         if self.low_memory:
             max_memory_size = info['memory_size'] + sum_memory_size_child
             min_memory_size = info['memory_size'] + max_memory_size_child
@@ -513,7 +505,7 @@ class BaggedEnsembleModel(AbstractModel):
         return info
 
     def _get_child_info(self):
-        child_info_dict = dict()
+        child_info_dict = {}
         for model in self.models:
             if isinstance(model, str):
                 child_path = self.create_contexts(self.path + model + os.path.sep)

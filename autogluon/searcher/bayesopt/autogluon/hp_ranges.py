@@ -53,8 +53,10 @@ class HyperparameterRanges_CS(HyperparameterRanges):
                     categ_trg.append(trg_pos)
                     categ_card.append(card)
                     trg_pos += card
-            elif isinstance(hp, CS.UniformIntegerHyperparameter) or \
-                    isinstance(hp, CS.UniformFloatHyperparameter):
+            elif isinstance(
+                hp,
+                (CS.UniformIntegerHyperparameter, CS.UniformFloatHyperparameter),
+            ):
                 if hp.name == name_last_pos:
                     assert append_at_end is None
                     append_at_end = (src_pos, 1, False)
@@ -100,13 +102,15 @@ class HyperparameterRanges_CS(HyperparameterRanges):
         return self._ndarray_size
 
     def from_ndarray(self, cand_ndarray: np.ndarray) -> Candidate:
-        assert cand_ndarray.size == self._ndarray_size, \
-            "Internal vector [{}] must have size {}".format(
-                cand_ndarray, self._ndarray_size)
+        assert (
+            cand_ndarray.size == self._ndarray_size
+        ), f"Internal vector [{cand_ndarray}] must have size {self._ndarray_size}"
+
         cand_ndarray = cand_ndarray.reshape((-1,))
-        assert cand_ndarray.min() >= 0. and cand_ndarray.max() <= 1., \
-            "Internal vector [{}] must have entries in [0, 1]".format(
-                cand_ndarray)
+        assert (
+            cand_ndarray.min() >= 0.0 and cand_ndarray.max() <= 1.0
+        ), f"Internal vector [{cand_ndarray}] must have entries in [0, 1]"
+
         # Deal with categoricals by using argmax
         srcvec = np.zeros(self.__len__(), dtype=cand_ndarray.dtype)
         srcvec.put(
@@ -131,18 +135,17 @@ class HyperparameterRanges_CS(HyperparameterRanges):
         final_bound = None
         for hp in self.config_space.get_hyperparameters():
             if isinstance(hp, CS.CategoricalHyperparameter):
-                if not self._fix_attribute_value(hp.name):
-                    bound = [(0., 1.)] * len(hp.choices)
-                else:
+                if self._fix_attribute_value(hp.name):
                     bound = [(0., 0.)] * len(hp.choices)
                     bound[int(self.value_for_last_pos)] = (1., 1.)
-            else:
-                if not self._fix_attribute_value(hp.name):
-                    bound = [(0., 1.)]
                 else:
-                    val_int = float(hp._inverse_transform(
-                        np.array([self.value_for_last_pos])).item())
-                    bound = [(val_int, val_int)]
+                    bound = [(0., 1.)] * len(hp.choices)
+            elif not self._fix_attribute_value(hp.name):
+                bound = [(0., 1.)]
+            else:
+                val_int = float(hp._inverse_transform(
+                    np.array([self.value_for_last_pos])).item())
+                bound = [(val_int, val_int)]
             if hp.name == self.name_last_pos:
                 final_bound = bound
             else:
@@ -173,8 +176,7 @@ class HyperparameterRanges_CS(HyperparameterRanges):
         return rnd_configs
 
     def __repr__(self) -> str:
-        return "{}{}".format(
-            self.__class__.__name__, repr(self.config_space))
+        return f"{self.__class__.__name__}{repr(self.config_space)}"
 
     def __eq__(self, other: object) -> bool:
         if isinstance(other, HyperparameterRanges_CS):

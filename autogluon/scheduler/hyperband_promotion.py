@@ -61,7 +61,7 @@ class HyperbandPromotion_Manager(object):
         self._max_t = max_t
         self._min_t = grace_period
         # Maps str(task_id) -> bracket_id
-        self._task_info = dict()
+        self._task_info = {}
         self._brackets = []
         for s in range(brackets):
             bracket = PromotionBracket(
@@ -105,7 +105,7 @@ class HyperbandPromotion_Manager(object):
         rung_counts = bracket.get_rung_counts()
         if result[self._time_attr] < self._max_t:
             action, update_searcher, next_milestone, ignore_data = \
-                bracket.on_result(task, result[self._time_attr],
+                    bracket.on_result(task, result[self._time_attr],
                                   result[self._reward_attr])
         return {
             'task_continues': action,
@@ -140,7 +140,7 @@ class HyperbandPromotion_Manager(object):
         bracket = self._brackets[bracket_id]
         # Check whether config can be promoted in that bracket
         config, config_key, milestone, next_milestone = \
-            bracket.on_task_schedule()
+                bracket.on_task_schedule()
         if config is not None:
             extra_kwargs['milestone'] = next_milestone
             extra_kwargs['config_key'] = config_key
@@ -158,14 +158,7 @@ class HyperbandPromotion_Manager(object):
         return self._brackets[bracket_id].snapshot_rungs()
 
     def __repr__(self):
-        reprstr = self.__class__.__name__ + '(' + \
-                  'reward_attr: ' + self._reward_attr + \
-                  ', time_attr: ' + self._time_attr + \
-                  ', reduction_factor: ' + str(self._reduction_factor) + \
-                  ', max_t: ' + str(self._max_t) + \
-                  ', brackets: ' + str(self._brackets) + \
-                  ')'
-        return reprstr
+        return f'{self.__class__.__name__}(reward_attr: {self._reward_attr}, time_attr: {self._time_attr}, reduction_factor: {str(self._reduction_factor)}, max_t: {str(self._max_t)}, brackets: {str(self._brackets)})'
 
 
 class PromotionBracket(object):
@@ -186,10 +179,12 @@ class PromotionBracket(object):
         MAX_RUNGS = int(np.log(max_t / min_t) / np.log(self.rf) - s + 1)
         # The second entry in each tuple in _rungs is a dict mapping
         # config_key to (reward_value, was_promoted)
-        self._rungs = [(min_t * self.rf ** (k + s), dict())
-                       for k in reversed(range(MAX_RUNGS))]
+        self._rungs = [
+            (min_t * self.rf ** (k + s), {}) for k in reversed(range(MAX_RUNGS))
+        ]
+
         # Note: config_key are positions into _config, cast to str
-        self._config = list()
+        self._config = []
         # _running maps str(task_id) to tuples
         #   (config_key, milestone, resume_from),
         # which means task task_id runs evaluation of config_key until
@@ -197,13 +192,11 @@ class PromotionBracket(object):
         # not, the task is running a config which has been promoted from
         # rung level resume_from. This info is required for on_result to
         # properly report ignore_data.
-        self._running = dict()
+        self._running = {}
         # _count_tasks[m] counts the number of tasks started with target
         # milestone m. Here, m includes max_t. Used to implement the
         # keep_size_ratios rule
-        self._count_tasks = dict()
-        for milestone, _ in self._rungs:
-            self._count_tasks[str(milestone)] = 0
+        self._count_tasks = {str(milestone): 0 for milestone, _ in self._rungs}
         if self._rungs and max_t > self._rungs[0][0]:
             self._count_tasks[str(max_t)] = 0
 
@@ -267,8 +260,12 @@ class PromotionBracket(object):
             if _milestone < self.max_t:
                 skip_promotion = self._do_skip_promotion(
                     _milestone, next_milestone)
-                config_key = self._find_promotable_config(_recorded) \
-                    if not skip_promotion else None
+                config_key = (
+                    None
+                    if skip_promotion
+                    else self._find_promotable_config(_recorded)
+                )
+
             if config_key is not None:
                 recorded = _recorded
                 milestone = _milestone
@@ -278,12 +275,11 @@ class PromotionBracket(object):
         if config_key is None:
             # No promotable config in any rung
             return None, None, None, None
-        else:
-            # Mark config as promoted
-            reward = recorded[config_key][0]
-            assert not recorded[config_key][1]
-            recorded[config_key] = (reward, True)
-            return self._config[int(config_key)], config_key, milestone, \
+        # Mark config as promoted
+        reward = recorded[config_key][0]
+        assert not recorded[config_key][1]
+        recorded[config_key] = (reward, True)
+        return self._config[int(config_key)], config_key, milestone, \
                    next_milestone
 
     def on_task_add(self, task, **kwargs):
@@ -293,8 +289,7 @@ class PromotionBracket(object):
         to the next milestone (False). In the latter case, kwargs contains
         additional information about the promotion.
         """
-        new_config = kwargs.get('new_config', True)
-        if new_config:
+        if new_config := kwargs.get('new_config', True):
             # New config
             config_key = str(len(self._config))
             self._config.append(copy.copy(task.args['config']))
@@ -328,16 +323,17 @@ class PromotionBracket(object):
         :return: action, milestone_reached, next_milestone, ignore_data
         """
         assert cur_rew is not None, \
-            "Reward attribute must be a numerical value, not None"
+                "Reward attribute must be a numerical value, not None"
         task_key = str(task.task_id)
         action = True
         milestone_reached = False
         next_milestone = None
         milestone = self._running[task_key][1]
         if cur_iter >= milestone:
-            assert cur_iter == milestone, \
-                "cur_iter = {} > {} = milestone. Make sure to report time attributes covering all milestones".format(
-                    cur_iter, milestone)
+            assert (
+                cur_iter == milestone
+            ), f"cur_iter = {cur_iter} > {milestone} = milestone. Make sure to report time attributes covering all milestones"
+
             action = False
             milestone_reached = True
             config_key = self._running[task_key][0]
@@ -349,7 +345,7 @@ class PromotionBracket(object):
                 recorded = self._rungs[rung_pos][1]
                 recorded[config_key] = (cur_rew, False)
                 next_milestone = self._rungs[rung_pos - 1][0] \
-                    if rung_pos > 0 else self.max_t
+                        if rung_pos > 0 else self.max_t
                 # Check whether config can be promoted immediately. If so,
                 # we do not have to stop the task
                 if milestone < self.max_t:
@@ -402,4 +398,4 @@ class PromotionBracket(object):
                 milestone, *self._num_promotable_config(recorded))
             for milestone, recorded in self._rungs
         ])
-        return "Bracket: " + iters
+        return f"Bracket: {iters}"

@@ -62,11 +62,10 @@ def set_presets(**kwargs):
                 preset = preset_dict.get(preset, None)
                 if preset is None:
                     raise ValueError(f'Preset \'{preset_orig}\' was not found. Valid presets: {list(preset_dict.keys())}')
-            if isinstance(preset, dict):
-                for key in preset:
-                    preset_kwargs[key] = preset[key]
-            else:
+            if not isinstance(preset, dict):
                 raise TypeError(f'Preset of type {type(preset)} was given, but only presets of type [dict, str] are valid.')
+            for key in preset:
+                preset_kwargs[key] = preset[key]
         for key in preset_kwargs:
             if key not in kwargs:
                 kwargs[key] = preset_kwargs[key]

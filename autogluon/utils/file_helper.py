@@ -84,10 +84,12 @@ def generate_csv_submission(dataset_path, dataset, local_path, inds, preds, clas
     save_csv_path = os.path.join(local_path, dataset, save_csv_name)
     if csv_config['need_sample']:  # plant\fish\dog
         df = pd.read_csv(csv_path)
-        if not csv_config['fullname']:
-            imagename_list = [name_id[:-4] for name_id in ids]
-        else:
-            imagename_list = ids
+        imagename_list = (
+            ids
+            if csv_config['fullname']
+            else [name_id[:-4] for name_id in ids]
+        )
+
         row_index_group = []
         for i in imagename_list:
             if csv_config['content'] == 'str':
@@ -141,10 +143,7 @@ def generate_csv_submission(dataset_path, dataset, local_path, inds, preds, clas
         print('generate_csv B is done')
 
 def filter_value(prob, Threshold):
-    if prob > Threshold:
-        prob = prob
-    else:
-        prob = 0
+    prob = prob if prob > Threshold else 0
     return prob
 
 def generate_prob_csv(test_dataset, preds, set_prob_thresh=0, ensemble_list='', custom='./submission.csv', scale_min_max=True):
@@ -159,7 +158,7 @@ def generate_prob_csv(test_dataset, preds, set_prob_thresh=0, ensemble_list='', 
     row_index_group = []
     for i in imagename_list:
         row_index = df[df['id'] == str(i)].index.tolist()
-        if not len(row_index) == 0:
+        if len(row_index) != 0:
             row_index_group.append(row_index[0])
     df.loc[row_index_group, 1:] = preds
     df.to_csv(custom, index=False)
@@ -174,7 +173,8 @@ def generate_prob_csv(test_dataset, preds, set_prob_thresh=0, ensemble_list='', 
         for i in w.columns.values:
             w[i] = w[i].apply(filter_value, Threshold=set_prob_thresh)
         w.to_csv(custom)
-    if not ensemble_list.strip() == '':
+
+    if ensemble_list.strip() != '':
         ensemble_csv(ensemble_list)
     print('dog_generate_csv is done')
 
@@ -183,10 +183,8 @@ def generate_csv(inds, path):
         row = ['id', 'category']
         writer = csv.writer(csvFile)
         writer.writerow(row)
-        id = 1
-        for ind in inds:
+        for id, ind in enumerate(inds, start=1):
             row = [id, ind]
             writer = csv.writer(csvFile)
             writer.writerow(row)
-            id += 1
     csvFile.close()

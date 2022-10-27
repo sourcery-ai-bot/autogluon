@@ -146,17 +146,12 @@ class TextClassification(BaseTask):
         >>> predictor = task.fit(dataset)
         """
         assert search_strategy not in {'bayesopt', 'bayesopt_hyperband'}, \
-            "search_strategy == 'bayesopt' or 'bayesopt_hyperband' not yet supported"
+                "search_strategy == 'bayesopt' or 'bayesopt_hyperband' not yet supported"
 
         logger.warning('`TextClassification` is in preview mode.'
                        'Please feel free to request new features in issues '
                        'if it is not covered in the current implementation. '
                        'If your dataset is in tabular format, you could also try out our `TabularPrediction` module.')
-
-        if auto_search:
-            # The strategies can be injected here, for example: automatic suggest some hps
-            # based on the dataset statistics
-            pass
 
         nthreads_per_trial = get_cpu_count() if nthreads_per_trial > get_cpu_count() else nthreads_per_trial
         ngpus_per_trial = get_gpu_count() if ngpus_per_trial > get_gpu_count() else ngpus_per_trial
@@ -197,7 +192,7 @@ class TextClassification(BaseTask):
                 scheduler_options = {'grace_period': grace_period}
             else:
                 assert 'grace_period' not in scheduler_options, \
-                    "grace_period appears both in scheduler_options and as direct argument"
+                        "grace_period appears both in scheduler_options and as direct argument"
                 scheduler_options = copy.copy(scheduler_options)
                 scheduler_options['grace_period'] = grace_period
             logger.warning(

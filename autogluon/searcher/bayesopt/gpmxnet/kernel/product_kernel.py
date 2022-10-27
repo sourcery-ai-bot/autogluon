@@ -70,15 +70,15 @@ class ProductKernelFunction(KernelFunction):
                self.kernel2.param_encoding_pairs()
 
     def get_params(self):
-        result = dict()
-        prefs = [k + '_' for k in self.name_prefixes]
+        result = {}
+        prefs = [f'{k}_' for k in self.name_prefixes]
         for pref, kernel in zip(prefs, [self.kernel1, self.kernel2]):
-            result.update({
-                (pref + k): v for k, v in kernel.get_params().items()})
+            result |= {(pref + k): v for k, v in kernel.get_params().items()}
+
         return result
 
     def set_params(self, param_dict):
-        prefs = [k + '_' for k in self.name_prefixes]
+        prefs = [f'{k}_' for k in self.name_prefixes]
         for pref, kernel in zip(prefs, [self.kernel1, self.kernel2]):
             len_pref = len(pref)
             stripped_dict = {

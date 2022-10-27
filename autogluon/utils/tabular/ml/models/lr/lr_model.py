@@ -133,7 +133,7 @@ class LinearModel(AbstractModel):
         # TODO: copy_X=True currently set during regression problem type, could potentially set to False to avoid unnecessary data copy.
         model = self.model_class(**params)
 
-        logger.log(15, f'Training Model with the following hyperparameter settings:')
+        logger.log(15, 'Training Model with the following hyperparameter settings:')
         logger.log(15, model)
 
         self.model = model.fit(X_train, y_train)

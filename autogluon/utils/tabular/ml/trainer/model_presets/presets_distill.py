@@ -62,7 +62,7 @@ def get_preset_models_distillation(path, problem_type, eval_metric, hyperparamet
         elif 'default' in hyperparameters and 'RF' in hyperparameters['default']:
             hyperparameters['default']['RF'] = rf_hyperparameters
 
-    if problem_type == REGRESSION or problem_type == BINARY:
+    if problem_type in [REGRESSION, BINARY]:
         models = get_preset_models(path=path, problem_type=REGRESSION, eval_metric=eval_metric, stopping_metric=stopping_metric,
                                    hyperparameters=hyperparameters, hyperparameter_tune=hyperparameter_tune, name_suffix=name_suffix, default_priorities=DEFAULT_DISTILL_PRIORITY)
 

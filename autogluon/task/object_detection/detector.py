@@ -44,7 +44,7 @@ class Detector(BasePredictor):
         net.collect_params().reset_ctx(ctx)
 
         def _get_dataloader(net, test_dataset, data_shape, batch_size, num_workers, num_devices,
-                            args):
+                                args):
             """Get dataloader."""
             if args.meta_arch == 'yolo3':
                 width, height = data_shape, data_shape
@@ -73,7 +73,7 @@ class Detector(BasePredictor):
                 )
                 return test_loader
             else:
-                raise NotImplementedError('%s not implemented.' % args.meta_arch)
+                raise NotImplementedError(f'{args.meta_arch} not implemented.')
 
         def _validate(net, val_data, ctx, eval_metric):
             """Test on validation dataset."""
@@ -94,7 +94,7 @@ class Detector(BasePredictor):
                     split_batch = rcnn_split_and_load(batch, ctx_list=ctx)
                     clipper = gcv.nn.bbox.BBoxClipToImage()
                 else:
-                    raise NotImplementedError('%s not implemented.' % args.meta_arch)
+                    raise NotImplementedError(f'{args.meta_arch} not implemented.')
                 det_bboxes = []
                 det_ids = []
                 det_scores = []
@@ -107,7 +107,7 @@ class Detector(BasePredictor):
                     elif args.meta_arch == 'faster_rcnn':
                         x, y, im_scale = data
                     else:
-                        raise NotImplementedError('%s not implemented.' % args.meta_arch)
+                        raise NotImplementedError(f'{args.meta_arch} not implemented.')
                     # get prediction results
                     ids, scores, bboxes = net(x)
                     det_ids.append(ids)
@@ -121,7 +121,7 @@ class Detector(BasePredictor):
                         im_scale = im_scale.reshape((-1)).asscalar()
                         det_bboxes[-1] *= im_scale
                     else:
-                        raise NotImplementedError('%s not implemented.' % args.meta_arch)
+                        raise NotImplementedError(f'{args.meta_arch} not implemented.')
                     # split ground truths
                     gt_ids.append(y.slice_axis(axis=-1, begin=4, end=5))
                     gt_bboxes.append(y.slice_axis(axis=-1, begin=0, end=4))
@@ -135,10 +135,10 @@ class Detector(BasePredictor):
                                        gt_difficults)
                 elif args.meta_arch == 'faster_rcnn':
                     for det_bbox, det_id, det_score, gt_bbox, gt_id, gt_diff in \
-                            zip(det_bboxes, det_ids, det_scores, gt_bboxes, gt_ids, gt_difficults):
+                                zip(det_bboxes, det_ids, det_scores, gt_bboxes, gt_ids, gt_difficults):
                         eval_metric.update(det_bbox, det_id, det_score, gt_bbox, gt_id, gt_diff)
                 else:
-                    raise NotImplementedError('%s not implemented.' % args.meta_arch)
+                    raise NotImplementedError(f'{args.meta_arch} not implemented.')
             return eval_metric.get()
 
         if isinstance(dataset, AutoGluonObject):

@@ -57,15 +57,22 @@ class CleanerMulticlass(Cleaner):
     def get_valid_classes(X, label, threshold):
         class_counts = X[label].value_counts()
         class_counts_valid = class_counts[class_counts >= threshold]
-        valid_classes = list(class_counts_valid.index)
         sum_prior = sum(class_counts)
         sum_after = sum(class_counts_valid)
         percent = sum_after / sum_prior
+        valid_classes = list(class_counts_valid.index)
         if len(valid_classes) < len(class_counts):
-            logger.log(25, 'Warning: Some classes in the training set have fewer than %s examples. AutoGluon will only keep %s out of %s classes for training and will not try to predict the rare classes. '
-                           'To keep more classes, increase the number of datapoints from these rare classes in the training data or reduce label_count_threshold.' % (threshold, len(valid_classes), len(class_counts)))
+            logger.log(
+                25,
+                f'Warning: Some classes in the training set have fewer than {threshold} examples. AutoGluon will only keep {len(valid_classes)} out of {len(class_counts)} classes for training and will not try to predict the rare classes. To keep more classes, increase the number of datapoints from these rare classes in the training data or reduce label_count_threshold.',
+            )
+
         if percent < 1.0:
-            logger.log(25, 'Fraction of data from classes with at least %s examples that will be kept for training models: %s' % (threshold, percent))
+            logger.log(
+                25,
+                f'Fraction of data from classes with at least {threshold} examples that will be kept for training models: {percent}',
+            )
+
         return valid_classes
 
     @staticmethod

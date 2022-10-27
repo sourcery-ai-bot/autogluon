@@ -15,16 +15,18 @@ logger = logging.getLogger(__name__)
 
 
 def get_param_baseline():
-    default_params = {
+    return {
         'C': 1,
         'vectorizer_dict_size': 75000,  # size of TFIDF vectorizer dictionary; used only in text model
-        'proc.ngram_range': (1, 5),  # range of n-grams for TFIDF vectorizer dictionary; used only in text model
+        'proc.ngram_range': (
+            1,
+            5,
+        ),  # range of n-grams for TFIDF vectorizer dictionary; used only in text model
         'proc.skew_threshold': 0.99,  # numerical features whose absolute skewness is greater than this receive special power-transform preprocessing. Choose big value to avoid using power-transforms
         'proc.impute_strategy': 'median',  # strategy argument of sklearn.SimpleImputer() used to impute missing numeric values
         'penalty': L2,  # regularization to use with regression models
-        'handle_text': IGNORE, # how text should be handled: `ignore` - don't use NLP features; `only` - only use NLP features; `include` - use both regular and NLP features
+        'handle_text': IGNORE,  # how text should be handled: `ignore` - don't use NLP features; `only` - only use NLP features; `include` - use both regular and NLP features
     }
-    return default_params
 
 
 def get_model_params(problem_type: str, hyperparameters):
@@ -36,7 +38,10 @@ def get_model_params(problem_type: str, hyperparameters):
         elif penalty == L1:
             model_class = Lasso
         else:
-            logger.warning('Unknown value for penalty {} - supported types are [l1, l2] - falling back to l2'.format(penalty))
+            logger.warning(
+                f'Unknown value for penalty {penalty} - supported types are [l1, l2] - falling back to l2'
+            )
+
             penalty = L2
             model_class = Ridge
     else:
@@ -58,9 +63,4 @@ def get_default_params(problem_type: str, penalty: str):
 
 
 def _get_solver(problem_type):
-    if problem_type == BINARY:
-        # TODO explore using liblinear for smaller datasets
-        solver = 'lbfgs'
-    else:
-        solver = 'lbfgs'
-    return solver
+    return 'lbfgs'

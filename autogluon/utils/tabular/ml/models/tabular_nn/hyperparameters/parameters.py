@@ -5,7 +5,7 @@ from ....constants import BINARY, MULTICLASS, REGRESSION
 
 def get_fixed_params():
     """ Parameters that currently cannot be searched during HPO """
-    fixed_params = {
+    return {
         'num_epochs': 500,  # maximum number of epochs for training NN
         'epochs_wo_improve': 20,  # we terminate training if validation performance hasn't improved in the last 'epochs_wo_improve' # of epochs
         # TODO: Epochs could take a very long time, we may want smarter logic than simply # of epochs without improvement (slope, difference in score, etc.)
@@ -20,15 +20,14 @@ def get_fixed_params():
         'proc.skew_threshold': 0.99,  # numerical features whose absolute skewness is greater than this receive special power-transform preprocessing. Choose big value to avoid using power-transforms
         # Options: [0.2, 0.3, 0.5, 0.8, 1.0, 10.0, 100.0]
         # Old params: These are now set based off of nthreads_per_trial, ngpus_per_trial.
-        # 'num_dataloading_workers': 1,  # Will be overwritten by nthreads_per_trial, can be >= 1 
+        # 'num_dataloading_workers': 1,  # Will be overwritten by nthreads_per_trial, can be >= 1
         # 'ctx': mx.cpu(),  # Will be overwritten by ngpus_per_trial if unspecified (can alternatively be: mx.gpu())
     }
-    return fixed_params
 
 
 def get_hyper_params():
     """ Parameters that currently can be tuned during HPO """
-    hyper_params = {
+    return {
         ## Hyperparameters for neural net architecture:
         'network_type': 'widedeep',  # Type of neural net used to produce predictions
         # Options: ['widedeep', 'feedforward']
@@ -73,20 +72,17 @@ def get_hyper_params():
         'use_ngram_features': False,  # If False, will drop automatically generated ngram features from language features. This results in worse model quality but far faster inference and training times.
         # Options: [True, False]
     }
-    return hyper_params
 
 
 # Note: params for original NNTabularModel were:
 # weight_decay=0.01, dropout_prob = 0.1, batch_size = 2048, lr = 1e-2, epochs=30, layers= [200, 100] (semi-equivalent to our layers = [100],numeric_embed_dim=200)
 def get_default_param(problem_type, num_classes=None):
-    if problem_type == BINARY:
+    if problem_type == BINARY or problem_type not in [MULTICLASS, REGRESSION]:
         return get_param_binary()
     elif problem_type == MULTICLASS:
         return get_param_multiclass(num_classes=num_classes)
-    elif problem_type == REGRESSION:
-        return get_param_regression()
     else:
-        return get_param_binary()
+        return get_param_regression()
 
 
 def get_param_multiclass(num_classes):

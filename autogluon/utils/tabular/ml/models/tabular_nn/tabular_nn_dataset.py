@@ -86,7 +86,7 @@ class TabularNNDataset:
             elif feature_type_map[feature] == 'language':
                 self.feature_groups['language'].append(feature)
             else:
-                raise ValueError("unknown feature type: %s" % feature)
+                raise ValueError(f"unknown feature type: {feature}")
 
         if not self.is_test and labels is None:
             raise ValueError("labels must be provided when is_test = False")
@@ -175,13 +175,12 @@ class TabularNNDataset:
 
     def get_labels(self):
         """ Returns numpy array of labels for this dataset """
-        if self.label_index is not None:
-            if self.problem_type == SOFTCLASS:
-                return self.dataset._data[self.label_index].asnumpy()
-            else:
-                return self.dataset._data[self.label_index].asnumpy().flatten()
-        else:
+        if self.label_index is None:
             return None
+        if self.problem_type == SOFTCLASS:
+            return self.dataset._data[self.label_index].asnumpy()
+        else:
+            return self.dataset._data[self.label_index].asnumpy().flatten()
 
     def getNumCategoriesEmbeddings(self):
         """ Returns number of categories for each embedding feature.
@@ -191,15 +190,14 @@ class TabularNNDataset:
         """
         if self.num_categories_per_embed_feature is not None:
             return self.num_categories_per_embedfeature
-        else:
-            num_embed_feats = self.num_embed_features()
-            num_categories_per_embedfeature = [0] * num_embed_feats
-            for i in range(num_embed_feats):
-                feat_i = self.feature_groups['embed'][i]
-                feat_i_data = self.get_feature_data(feat_i).flatten().tolist()
-                num_categories_i = len(set(feat_i_data)) # number of categories for ith feature
-                num_categories_per_embedfeature[i] = num_categories_i + 1 # to account for unknown test-time categories
-            return num_categories_per_embedfeature
+        num_embed_feats = self.num_embed_features()
+        num_categories_per_embedfeature = [0] * num_embed_feats
+        for i in range(num_embed_feats):
+            feat_i = self.feature_groups['embed'][i]
+            feat_i_data = self.get_feature_data(feat_i).flatten().tolist()
+            num_categories_i = len(set(feat_i_data)) # number of categories for ith feature
+            num_categories_per_embedfeature[i] = num_categories_i + 1 # to account for unknown test-time categories
+        return num_categories_per_embedfeature
 
     def get_feature_data(self, feature, asnumpy=True):
         """ Returns all data for this feature.
@@ -207,9 +205,9 @@ class TabularNNDataset:
                 feature (str): name of feature of interest (in processed dataframe)
                 asnumpy (bool): should we return 2D numpy array or MXNet NDarray
         """
-        nonvector_featuretypes = set(['embed', 'language'])
+        nonvector_featuretypes = {'embed', 'language'}
         if feature not in self.feature_type_map:
-            raise ValueError("unknown feature encountered: %s" % feature)
+            raise ValueError(f"unknown feature encountered: {feature}")
         if self.feature_type_map[feature] == 'vector':
             vector_datamatrix = self.dataset._data[self.vectordata_index] # does not work for one-hot...
             feature_data = vector_datamatrix[:, self.vecfeature_col_map[feature]]
@@ -218,10 +216,7 @@ class TabularNNDataset:
             feature_data = self.dataset._data[feature_idx]
         else:
             raise ValueError("Unknown feature specified: " % feature)
-        if asnumpy:
-            return feature_data.asnumpy()
-        else:
-            return feature_data
+        return feature_data.asnumpy() if asnumpy else feature_data
 
     def get_feature_batch(self, feature, data_batch, asnumpy=False):
         """ Returns part of this batch corresponding to data from a single feature
@@ -230,9 +225,9 @@ class TabularNNDataset:
             Returns:
 
         """
-        nonvector_featuretypes = set(['embed', 'language'])
+        nonvector_featuretypes = {'embed', 'language'}
         if feature not in self.feature_type_map:
-            raise ValueError("unknown feature encountered: %s" % feature)
+            raise ValueError(f"unknown feature encountered: {feature}")
         if self.feature_type_map[feature] == 'vector':
             vector_datamatrix = data_batch[self.vectordata_index]
             feature_data = vector_datamatrix[:, self.vecfeature_col_map[feature]]
@@ -241,10 +236,7 @@ class TabularNNDataset:
             feature_data = data_batch[feature_idx]
         else:
             raise ValueError("Unknown feature specified: " % feature)
-        if asnumpy:
-            return feature_data.asnumpy()
-        else:
-            return feature_data
+        return feature_data.asnumpy() if asnumpy else feature_data
 
     def format_batch_data(self, data_batch, ctx):
         """ Partitions data from this batch into different data types.

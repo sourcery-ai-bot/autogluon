@@ -160,17 +160,13 @@ def early_stopping_custom(stopping_rounds, first_metric_only=False, metrics_to_u
                 best_iter[i] = env.iteration
                 best_score_list[i] = env.evaluation_result_list
                 best_trainloss[i] = train_loss_val
-            if reporter is not None:  # Report current best scores for iteration, used in HPO
-                if i == indices_to_check[0]:  # TODO: documentation needs to note that we assume 0th index is the 'official' validation performance metric.
-                    if cmp_op[i] == gt:
-                        validation_perf = score
-                    else:
-                        validation_perf = -score
-                    reporter(epoch=env.iteration + 1,
-                             validation_performance=validation_perf,
-                             train_loss=best_trainloss[i],
-                             best_iter_sofar=best_iter[i] + 1,
-                             best_valperf_sofar=best_score[i])
+            if reporter is not None and i == indices_to_check[0]:
+                validation_perf = score if cmp_op[i] == gt else -score
+                reporter(epoch=env.iteration + 1,
+                         validation_performance=validation_perf,
+                         train_loss=best_trainloss[i],
+                         best_iter_sofar=best_iter[i] + 1,
+                         best_valperf_sofar=best_score[i])
             if env.iteration - best_iter[i] >= stopping_rounds:
                 if verbose:
                     logger.log(15, 'Early stopping, best iteration is:\n[%d]\t%s' % (
@@ -190,12 +186,11 @@ def early_stopping_custom(stopping_rounds, first_metric_only=False, metrics_to_u
                 raise EarlyStopException(best_iter[i], best_score_list[i])
             if verbose:
                 logger.debug((env.iteration - best_iter[i], env.evaluation_result_list[i]))
-        if manual_stop_file:
-            if os.path.exists(manual_stop_file):
-                i = indices_to_check[0]
-                logger.log(20, 'Found manual stop file, early stopping. Best iteration is:\n[%d]\t%s' % (
-                    best_iter[i] + 1, '\t'.join([_format_eval_result(x) for x in best_score_list[i]])))
-                raise EarlyStopException(best_iter[i], best_score_list[i])
+        if manual_stop_file and os.path.exists(manual_stop_file):
+            i = indices_to_check[0]
+            logger.log(20, 'Found manual stop file, early stopping. Best iteration is:\n[%d]\t%s' % (
+                best_iter[i] + 1, '\t'.join([_format_eval_result(x) for x in best_score_list[i]])))
+            raise EarlyStopException(best_iter[i], best_score_list[i])
         if time_limit:
             time_elapsed = time.time() - start_time
             time_left = time_limit - time_elapsed
@@ -218,21 +213,21 @@ def early_stopping_custom(stopping_rounds, first_metric_only=False, metrics_to_u
 
             model_size_memory_ratio = estimated_model_size_mb / available_mb
             if verbose or (model_size_memory_ratio > 0.25):
-                logging.debug('Available Memory: '+str(available_mb)+' MB')
-                logging.debug('Estimated Model Size: '+str(estimated_model_size_mb)+' MB')
+                logging.debug(f'Available Memory: {str(available_mb)} MB')
+                logging.debug(f'Estimated Model Size: {str(estimated_model_size_mb)} MB')
 
             early_stop = False
             if model_size_memory_ratio > 1.0:
                 logger.warning('Warning: Large GBM model size may cause OOM error if training continues')
-                logger.warning('Available Memory: '+str(available_mb)+' MB')
-                logger.warning('Estimated GBM model size: '+str(estimated_model_size_mb)+' MB')
+                logger.warning(f'Available Memory: {str(available_mb)} MB')
+                logger.warning(f'Estimated GBM model size: {str(estimated_model_size_mb)} MB')
                 early_stop = True
 
             # TODO: We will want to track size of model as well, even if we early stop before OOM, we will still crash when saving if the model is large enough
             if available_mb < 512:  # Less than 500 MB
                 logger.warning('Warning: Low available memory may cause OOM error if training continues')
-                logger.warning('Available Memory: '+str(available_mb)+' MB')
-                logger.warning('Estimated GBM model size: '+str(estimated_model_size_mb)+' MB')
+                logger.warning(f'Available Memory: {str(available_mb)} MB')
+                logger.warning(f'Estimated GBM model size: {str(estimated_model_size_mb)} MB')
                 early_stop = True
 
             if early_stop:

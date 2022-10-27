@@ -73,21 +73,18 @@ def auto_suggest_network(dataset, net):
         return net
     dataset_name = dataset_name.lower()
     if 'mnist' in dataset_name:
-        if isinstance(net, str) or isinstance(net, Categorical):
+        if isinstance(net, (str, Categorical)):
             net = mnist_net()
-            logger.info('Auto suggesting network net for dataset {}'.format(net, dataset_name))
+            logger.info(f'Auto suggesting network net for dataset {net}')
             return net
     elif 'cifar' in dataset_name:
         if isinstance(net, str):
             if 'cifar' not in net:
                 net = 'cifar_resnet20_v1'
         elif isinstance(net, Categorical):
-            newdata = []
-            for x in net.data:
-                if 'cifar' in x:
-                    newdata.append(x)
-            net.data = newdata if len(newdata) > 0 else ['cifar_resnet20_v1', 'cifar_resnet56_v1']
-        logger.info('Auto suggesting network net for dataset {}'.format(net, dataset_name))
+            newdata = [x for x in net.data if 'cifar' in x]
+            net.data = newdata or ['cifar_resnet20_v1', 'cifar_resnet56_v1']
+        logger.info(f'Auto suggesting network net for dataset {net}')
         return net
 
 def get_network(net, **kwargs):

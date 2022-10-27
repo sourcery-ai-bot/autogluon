@@ -99,7 +99,7 @@ class RLScheduler(FIFOScheduler):
     """
     def __init__(self, train_fn, **kwargs):
         assert isinstance(train_fn, _autogluon_method), 'Please use @ag.args ' + \
-                'to decorate your training script.'
+                    'to decorate your training script.'
         # Check values and impute default values (only for arguments new to
         # this class)
         kwargs = check_and_merge_defaults(
@@ -127,7 +127,7 @@ class RLScheduler(FIFOScheduler):
         self.controller_resource = DistributedResource(**controller_resource)
         assert self.resource_manager.reserve_resource(
             master_node, self.controller_resource),\
-            "Not Enough Resource on Master Node for Training Controller"
+                "Not Enough Resource on Master Node for Training Controller"
         if controller_resource['num_gpus'] > 0:
             self.controller_ctx = [
                 mx.gpu(i) for i in self.controller_resource.gpu_ids]
@@ -154,7 +154,7 @@ class RLScheduler(FIFOScheduler):
             if os.path.isfile(checkpoint):
                 self.load_state_dict(load(checkpoint))
             else:
-                msg = 'checkpoint path {} is not available for resume.'.format(checkpoint)
+                msg = f'checkpoint path {checkpoint} is not available for resume.'
                 logger.exception(msg)
 
     def run(self, **kwargs):
@@ -162,8 +162,11 @@ class RLScheduler(FIFOScheduler):
         """
         self.num_trials = kwargs.get('num_trials', self.num_trials)
         logger.info('Starting Experiments')
-        logger.info('Num of Finished Tasks is {}'.format(self.num_finished_tasks))
-        logger.info('Num of Pending Tasks is {}'.format(self.num_trials - self.num_finished_tasks))
+        logger.info(f'Num of Finished Tasks is {self.num_finished_tasks}')
+        logger.info(
+            f'Num of Pending Tasks is {self.num_trials - self.num_finished_tasks}'
+        )
+
         if self.sync:
             self._run_sync()
         else:
@@ -175,8 +178,8 @@ class RLScheduler(FIFOScheduler):
             with mx.autograd.record():
                 # sample controller_batch_size number of configurations
                 batch_size = self.num_trials % self.num_trials \
-                    if i == self.num_trials // self.controller_batch_size \
-                    else self.controller_batch_size
+                        if i == self.num_trials // self.controller_batch_size \
+                        else self.controller_batch_size
                 if batch_size == 0: continue
                 configs, log_probs, entropies = self.controller.sample(
                     batch_size, with_details=True)
@@ -198,7 +201,7 @@ class RLScheduler(FIFOScheduler):
             # update
             loss.backward()
             self.controller_optimizer.step(batch_size)
-            logger.debug('controller loss: {}'.format(loss.asscalar()))
+            logger.debug(f'controller loss: {loss.asscalar()}')
 
     def _run_async(self):
         def _async_run_trial():
@@ -337,9 +340,7 @@ class RLScheduler(FIFOScheduler):
         """
         cls = RLScheduler
         cls.resource_manager._request(task.resources)
-        # main process
-        job = cls._start_distributed_job(task, cls.resource_manager)
-        return job
+        return cls._start_distributed_job(task, cls.resource_manager)
 
     def join_tasks(self):
         pass
@@ -354,13 +355,13 @@ class RLScheduler(FIFOScheduler):
         if destination is None:
             destination = OrderedDict()
             destination._metadata = OrderedDict()
-        logger.debug('\nState_Dict self.finished_tasks: {}'.format(self.finished_tasks))
+        logger.debug(f'\nState_Dict self.finished_tasks: {self.finished_tasks}')
         destination['finished_tasks'] = pickle.dumps(self.finished_tasks)
         destination['baseline'] = pickle.dumps(self.baseline)
         destination['TASK_ID'] = Task.TASK_ID.value
         destination['searcher'] = self.searcher.state_dict()
         destination['training_history'] = json.dumps(self.training_history)
-        if self.visualizer == 'mxboard' or self.visualizer == 'tensorboard':
+        if self.visualizer in ['mxboard', 'tensorboard']:
             destination['visualizer'] = json.dumps(self.mxboard._scalar_dict)
         return destination
 
@@ -376,6 +377,6 @@ class RLScheduler(FIFOScheduler):
         Task.set_id(state_dict['TASK_ID'])
         self.searcher.load_state_dict(state_dict['searcher'])
         self.training_history = json.loads(state_dict['training_history'])
-        if self.visualizer == 'mxboard' or self.visualizer == 'tensorboard':
+        if self.visualizer in ['mxboard', 'tensorboard']:
             self.mxboard._scalar_dict = json.loads(state_dict['visualizer'])
-        logger.debug('Loading Searcher State {}'.format(self.searcher))
+        logger.debug(f'Loading Searcher State {self.searcher}')

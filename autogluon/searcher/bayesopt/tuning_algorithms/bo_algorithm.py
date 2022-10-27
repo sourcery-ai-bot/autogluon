@@ -103,7 +103,7 @@ class BayesianOptimizationAlgorithm(NamedTuple, NextCandidatesAlgorithm):
             num_outer_iterations = 1
             num_inner_candidates = self.num_requested_candidates
         assert num_outer_iterations == 1 or self.pending_candidate_state_transformer, \
-            "Need pending_candidate_state_transformer for greedy batch selection"
+                "Need pending_candidate_state_transformer for greedy batch selection"
         candidates = []
         model = None  # GPMXNetModel, if num_outer_iterations > 1
         for outer_iter in range(num_outer_iterations):
@@ -137,7 +137,7 @@ class BayesianOptimizationAlgorithm(NamedTuple, NextCandidatesAlgorithm):
                 self.num_initial_candidates, self.blacklisted_candidates)
         else:
             initial_candidates = \
-                self.initial_candidates_generator.generate_candidates_en_bulk(
+                    self.initial_candidates_generator.generate_candidates_en_bulk(
                     self.num_initial_candidates)
         if self.profiler is not None:
             self.profiler.stop('nextcand_genrandom')
@@ -162,7 +162,7 @@ class BayesianOptimizationAlgorithm(NamedTuple, NextCandidatesAlgorithm):
             initial_candidates, self.local_optimizer, model=model)
         logger.info("BO Algorithm: Selecting final set of candidates.")
         if self.debug_log is not None and \
-                isinstance(self.local_optimizer, LBFGSOptimizeAcquisition):
+                    isinstance(self.local_optimizer, LBFGSOptimizeAcquisition):
             # We would like to get num_evaluations from the first run (usually
             # the only one). This requires peeking at the first entry of the
             # iterator
@@ -184,15 +184,12 @@ def _order_candidates(
         scoring_function: ScoringFunction,
         model: Optional[SurrogateModel],
         with_scores: bool = False) -> List[Candidate]:
-    if len(candidates) == 0:
+    if not candidates:
         return []
     # scored in batch as this can be more efficient
     scores = scoring_function.score(candidates, model=model)
     sorted_list = sorted(zip(scores, candidates), key=lambda x: x[0])
-    if with_scores:
-        return sorted_list
-    else:
-        return [cand for score, cand in sorted_list]
+    return sorted_list if with_scores else [cand for score, cand in sorted_list]
 
 
 def _lazily_locally_optimize(
@@ -221,9 +218,9 @@ def _pick_from_locally_optimized(
     result = []
     for original_candidate, optimized_candidate in candidates_with_optimization:
         insert_candidate = None
-        optimized_is_duplicate = duplicate_detector.contains(
-            updated_blacklist, optimized_candidate)
-        if optimized_is_duplicate:
+        if optimized_is_duplicate := duplicate_detector.contains(
+            updated_blacklist, optimized_candidate
+        ):
             # in the unlikely case that the optimized candidate ended at a
             # place that caused a duplicate we try to return the original instead
             original_also_duplicate = duplicate_detector.contains(

@@ -7,11 +7,8 @@ def in_ipynb():
     if 'AG_DOCS' in os.environ and os.environ['AG_DOCS']:
         return False
     try:
-        cfg = get_ipython().config 
-        if 'IPKernelApp' in cfg:
-            return True
-        else:
-            return False
+        cfg = get_ipython().config
+        return 'IPKernelApp' in cfg
     except NameError:
         return False
 
@@ -32,14 +29,12 @@ def verbosity2loglevel(verbosity):
     if verbosity <= 0: # only errors
         warnings.filterwarnings("ignore")
         # print("Caution: all warnings suppressed")
-        log_level = 40
+        return 40
     elif verbosity == 1: # only warnings and critical print statements
-        log_level = 25
+        return 25
     elif verbosity == 2: # key print statements which should be shown by default
-        log_level = 20 
+        return 20
     elif verbosity == 3: # more-detailed printing
-        log_level = 15
+        return 15
     else:
-        log_level = 10 # print everything (ie. debug mode)
-    
-    return log_level
+        return 10

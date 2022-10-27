@@ -27,7 +27,6 @@ class AutoTrainer(AbstractTrainer):
                 y_train = pd.concat([y_train, y_val], ignore_index=True)
             X_val = None
             y_val = None
-        else:
-            if (y_val is None) or (X_val is None):
-                X_train, X_val, y_train, y_val = generate_train_test_split(X_train, y_train, problem_type=self.problem_type, test_size=holdout_frac, random_state=self.random_seed)
+        elif (y_val is None) or (X_val is None):
+            X_train, X_val, y_train, y_val = generate_train_test_split(X_train, y_train, problem_type=self.problem_type, test_size=holdout_frac, random_state=self.random_seed)
         self.train_multi_and_ensemble(X_train, y_train, X_val, y_val, models, hyperparameter_tune=hyperparameter_tune, feature_prune=feature_prune)

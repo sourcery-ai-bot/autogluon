@@ -95,9 +95,10 @@ class ExponentialDecayResourcesKernelFunction(KernelFunction):
             self.encoding_delta = IdentityScalarEncoding(
                 constr_lower=0.0, constr_upper=1.0, init_val=delta_init)
         else:
-            assert 0.0 <= delta_fixed_value <= 1.0, \
-                "delta_fixed_value = {}, must lie in [0, 1]".format(
-                    delta_fixed_value)
+            assert (
+                0.0 <= delta_fixed_value <= 1.0
+            ), f"delta_fixed_value = {delta_fixed_value}, must lie in [0, 1]"
+
             self.encoding_delta = None
             self.delta_fixed_value = delta_fixed_value
 
@@ -253,8 +254,8 @@ class ExponentialDecayResourcesKernelFunction(KernelFunction):
             keys.pop()
         result = {k: v.reshape((1,)).asscalar() for k, v in zip(keys, values)}
         for pref, func in [('kernelx_', self.kernel_x), ('meanx_', self.mean_x)]:
-            result.update({
-                (pref + k): v for k, v in func.get_params().items()})
+            result |= {(pref + k): v for k, v in func.get_params().items()}
+
         return result
 
     def set_params(self, param_dict):
@@ -286,7 +287,7 @@ class ExponentialDecayResourcesMeanFunction(MeanFunction):
         return []
 
     def get_params(self):
-        return dict()
+        return {}
 
     def set_params(self, param_dict):
         pass

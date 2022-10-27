@@ -6,29 +6,33 @@ DEFAULT_NUM_BOOST_ROUND = 10000  # default for single training run
 
 
 def get_param_baseline_custom(problem_type, num_classes=None):
-    if problem_type == BINARY:
+    if problem_type == BINARY or problem_type not in [
+        MULTICLASS,
+        REGRESSION,
+        SOFTCLASS,
+    ]:
         return get_param_binary_baseline_custom()
     elif problem_type == MULTICLASS:
         return get_param_multiclass_baseline_custom(num_classes=num_classes)
     elif problem_type == REGRESSION:
         return get_param_regression_baseline_custom()
-    elif problem_type == SOFTCLASS:
-        return get_param_softclass_baseline_custom(num_classes=num_classes)
     else:
-        return get_param_binary_baseline_custom()
+        return get_param_softclass_baseline_custom(num_classes=num_classes)
 
 
 def get_param_baseline(problem_type, num_classes=None):
-    if problem_type == BINARY:
+    if problem_type == BINARY or problem_type not in [
+        MULTICLASS,
+        REGRESSION,
+        SOFTCLASS,
+    ]:
         return get_param_binary_baseline()
     elif problem_type == MULTICLASS:
         return get_param_multiclass_baseline(num_classes=num_classes)
     elif problem_type == REGRESSION:
         return get_param_regression_baseline()
-    elif problem_type == SOFTCLASS:
-        return get_param_softclass_baseline(num_classes=num_classes)
     else:
-        return get_param_binary_baseline()
+        return get_param_softclass_baseline(num_classes=num_classes)
 
 
 def get_param_multiclass_baseline_custom(num_classes):
@@ -52,7 +56,7 @@ def get_param_multiclass_baseline_custom(num_classes):
 
 
 def get_param_binary_baseline():
-    params = {
+    return {
         'num_boost_round': DEFAULT_NUM_BOOST_ROUND,
         'num_threads': -1,
         'objective': 'binary',
@@ -60,11 +64,10 @@ def get_param_binary_baseline():
         'boosting_type': 'gbdt',
         'two_round': True,
     }
-    return params
 
 
 def get_param_multiclass_baseline(num_classes):
-    params = {
+    return {
         'num_boost_round': DEFAULT_NUM_BOOST_ROUND,
         'num_threads': -1,
         'objective': 'multiclass',
@@ -73,11 +76,10 @@ def get_param_multiclass_baseline(num_classes):
         'boosting_type': 'gbdt',
         'two_round': True,
     }
-    return params
 
 
 def get_param_regression_baseline():
-    params = {
+    return {
         'num_boost_round': DEFAULT_NUM_BOOST_ROUND,
         'num_threads': -1,
         'objective': 'regression',
@@ -85,11 +87,10 @@ def get_param_regression_baseline():
         'boosting_type': 'gbdt',
         'two_round': True,
     }
-    return params
 
 
 def get_param_binary_baseline_dummy_gpu():
-    params = {
+    return {
         'num_boost_round': DEFAULT_NUM_BOOST_ROUND,
         'num_threads': -1,
         'objective': 'binary',
@@ -98,7 +99,6 @@ def get_param_binary_baseline_dummy_gpu():
         'two_round': True,
         'device_type': 'gpu',
     }
-    return params
 
 
 def get_param_binary_baseline_custom():

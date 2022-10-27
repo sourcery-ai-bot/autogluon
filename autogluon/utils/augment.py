@@ -265,7 +265,7 @@ def autoaug2fastaa(f):
 
 
 def rand_augment_list():  # 16 oeprations and their ranges
-    l = [
+    return [
         (AutoContrast, 0, 1),
         (Equalize, 0, 1),
         (Invert, 0, 1),
@@ -277,14 +277,12 @@ def rand_augment_list():  # 16 oeprations and their ranges
         (Contrast, 0.1, 1.9),
         (Brightness, 0.1, 1.9),
         (Sharpness, 0.1, 1.9),
-        (ShearX, 0., 0.3),
-        (ShearY, 0., 0.3),
+        (ShearX, 0.0, 0.3),
+        (ShearY, 0.0, 0.3),
         (CutoutAbs, 0, 40),
-        (TranslateXabs, 0., 100),
-        (TranslateYabs, 0., 100),
+        (TranslateXabs, 0.0, 100),
+        (TranslateYabs, 0.0, 100),
     ]
-
-    return l
 
 
 @autoaug2fastaa

@@ -17,12 +17,11 @@ logger = logging.getLogger(__name__)
 
 def get_pred_from_proba(y_pred_proba, problem_type=BINARY):
     if problem_type == BINARY:
-        y_pred = [1 if pred >= 0.5 else 0 for pred in y_pred_proba]
+        return [1 if pred >= 0.5 else 0 for pred in y_pred_proba]
     elif problem_type == REGRESSION:
-        y_pred = y_pred_proba
+        return y_pred_proba
     else:
-        y_pred = np.argmax(y_pred_proba, axis=1)
-    return y_pred
+        return np.argmax(y_pred_proba, axis=1)
 
 
 def generate_kfold(X, y=None, n_splits=5, random_state=0, stratified=False, n_repeats=1):
@@ -48,11 +47,7 @@ def generate_train_test_split(X: DataFrame, y: Series, problem_type: str, test_s
     if (test_size <= 0.0) or (test_size >= 1.0):
         raise ValueError("fraction of data to hold-out must be specified between 0 and 1")
 
-    if problem_type in [REGRESSION, SOFTCLASS]:
-        stratify = None
-    else:
-        stratify = y
-
+    stratify = None if problem_type in [REGRESSION, SOFTCLASS] else y
     # TODO: Enable stratified split when y class would result in 0 samples in test.
     #  One approach: extract low frequency classes from X/y, add back (1-test_size)% to X_train, y_train, rest to X_test
     #  Essentially stratify the high frequency classes, random the low frequency (While ensuring at least 1 example stays for each low frequency in train!)
@@ -142,8 +137,7 @@ def get_leaderboard_pareto_frontier(leaderboard: DataFrame, score_col='score_val
         elif (inference_time_min is None) or (row[inference_time_col] < inference_time_min):
             inference_time_min = row[inference_time_col]
             pareto_frontier.append(index)
-    leaderboard_pareto_frontier = leaderboard_unique.loc[pareto_frontier].reset_index(drop=True)
-    return leaderboard_pareto_frontier
+    return leaderboard_unique.loc[pareto_frontier].reset_index(drop=True)
 
 
 def shuffle_df_rows(X: DataFrame, seed=0, reset_index=True):
@@ -178,7 +172,7 @@ def normalize_pred_probas(y_predprob, problem_type, eps=1e-7):
         else:
             return normalize_multi_probas(y_predprob, eps)
     else:
-        raise ValueError(f"Invalid problem_type")
+        raise ValueError("Invalid problem_type")
 
 
 def normalize_binary_probas(y_predprob, eps):
@@ -222,11 +216,7 @@ def infer_problem_type(y: Series):
         logger.log(20, f'Here are the {unique_count} unique label values in your data:  {list(unique_values)}')
 
     MULTICLASS_LIMIT = 1000  # if numeric and class count would be above this amount, assume it is regression
-    if num_rows > 1000:
-        REGRESS_THRESHOLD = 0.05  # if the unique-ratio is less than this, we assume multiclass classification, even when labels are integers
-    else:
-        REGRESS_THRESHOLD = 0.1
-
+    REGRESS_THRESHOLD = 0.05 if num_rows > 1000 else 0.1
     if unique_count == 2:
         problem_type = BINARY
         reason = "only two unique label-values observed"
@@ -268,9 +258,7 @@ def infer_problem_type(y: Series):
 
 def infer_eval_metric(problem_type: str) -> Scorer:
     """Infers appropriate default eval metric based on problem_type. Useful when no eval_metric was provided."""
-    if problem_type == BINARY:
-        return accuracy
-    elif problem_type == MULTICLASS:
+    if problem_type in [BINARY, MULTICLASS]:
         return accuracy
     else:
         return root_mean_squared_error

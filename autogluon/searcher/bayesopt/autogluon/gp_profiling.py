@@ -36,16 +36,17 @@ class ProfilingData(NamedTuple):
 
 class GPMXNetSimpleProfiler(object):
     def __init__(self):
-        self.records = list()
+        self.records = []
         self.block = None
-        self.start_time = dict()
+        self.start_time = {}
         self.id_counter = 0
 
     def set_state(self, state: TuningJobState,
                   fit_hyperparams: bool):
-        assert not self.start_time, \
-            "Timers for these tags still running:\n{}".format(
-                self.start_time.keys())
+        assert (
+            not self.start_time
+        ), f"Timers for these tags still running:\n{self.start_time.keys()}"
+
         self.block = ProfilingData(
             id=self.id_counter, tag='', duration=0.,
             num_labeled=len(state.candidate_evaluations),
@@ -56,21 +57,20 @@ class GPMXNetSimpleProfiler(object):
 
     def start(self, tag: str):
         assert self.block is not None
-        assert tag not in self.start_time, \
-            "Timer for '{}' already running".format(tag)
+        assert tag not in self.start_time, f"Timer for '{tag}' already running"
         self.start_time[tag] = time.process_time()
 
     def stop(self, tag: str):
-        assert tag in self.start_time, \
-            "Timer for '{}' does not exist".format(tag)
+        assert tag in self.start_time, f"Timer for '{tag}' does not exist"
         duration = time.process_time() - self.start_time[tag]
         self.records.append(
             self.block._replace(duration=duration, tag=tag))
         del self.start_time[tag]
 
     def clear(self):
-        remaining_tags = list(self.start_time.keys())
-        if remaining_tags:
-            logger.warning("Timers for these tags not stopped (will be removed):\n{}".format(
-                remaining_tags))
-        self.start_time = dict()
+        if remaining_tags := list(self.start_time.keys()):
+            logger.warning(
+                f"Timers for these tags not stopped (will be removed):\n{remaining_tags}"
+            )
+
+        self.start_time = {}

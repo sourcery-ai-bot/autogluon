@@ -48,8 +48,7 @@ class KNNModel(SKLearnModel):
 
     # TODO: Enable HPO for KNN
     def _get_default_searchspace(self):
-        spaces = {}
-        return spaces
+        return {}
 
     def _fit(self, X_train, y_train, **kwargs):
         X_train = self.preprocess(X_train)
@@ -70,7 +69,16 @@ class KNNModel(SKLearnModel):
     def hyperparameter_tune(self, X_train, y_train, X_val, y_val, scheduler_options=None, **kwargs):
         fit_model_args = dict(X_train=X_train, y_train=y_train, **kwargs)
         predict_proba_args = dict(X=X_val)
-        model_trial.fit_and_save_model(model=self, params=dict(), fit_args=fit_model_args, predict_proba_args=predict_proba_args, y_val=y_val, time_start=time.time(), time_limit=None)
+        model_trial.fit_and_save_model(
+            model=self,
+            params={},
+            fit_args=fit_model_args,
+            predict_proba_args=predict_proba_args,
+            y_val=y_val,
+            time_start=time.time(),
+            time_limit=None,
+        )
+
         hpo_results = {'total_time': self.fit_time}
         hpo_model_performances = {self.name: self.val_score}
         hpo_models = {self.name: self.path}

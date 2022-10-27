@@ -16,8 +16,7 @@ class GreedyWeightedEnsembleModel(AbstractModel):
         self.features, self.num_pred_cols_per_model = self.set_stack_columns(base_model_names=self.base_model_names)
 
     def _get_default_searchspace(self):
-        spaces = {}
-        return spaces
+        return {}
 
     def _set_default_params(self):
         default_params = {'ensemble_size': 100}
@@ -64,7 +63,12 @@ class GreedyWeightedEnsembleModel(AbstractModel):
 
     def set_stack_columns(self, base_model_names):
         if self.problem_type == MULTICLASS:
-            stack_columns = [model_name + '_' + str(cls) for model_name in base_model_names for cls in range(self.num_classes)]
+            stack_columns = [
+                f'{model_name}_{str(cls)}'
+                for model_name in base_model_names
+                for cls in range(self.num_classes)
+            ]
+
             num_pred_cols_per_model = self.num_classes
         else:
             stack_columns = base_model_names
@@ -73,8 +77,7 @@ class GreedyWeightedEnsembleModel(AbstractModel):
 
     def _get_model_weights(self):
         num_models = len(self.base_model_names)
-        model_weight_dict = {self.base_model_names[i]: self.weights_[i] for i in range(num_models)}
-        return model_weight_dict
+        return {self.base_model_names[i]: self.weights_[i] for i in range(num_models)}
 
     def get_info(self):
         info = super().get_info()

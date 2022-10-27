@@ -41,7 +41,7 @@ class GPPosteriorStateIncrementalUpdater(object):
     def __init__(self, mean: MeanFunction, kernel: KernelFunction):
         self.mean = mean
         self.kernel = kernel
-        self._executors = dict()
+        self._executors = {}
         self.last_recent_exec_n = None
 
     def sample_and_update(
@@ -95,9 +95,10 @@ class GPPosteriorStateIncrementalUpdater(object):
     def _get_executor(self, args):
         n = args['features'].shape[0]
         # Sanity check
-        assert self.last_recent_exec_n is None or n > self.last_recent_exec_n, \
-            "Updater is not used in sequence in a single simulation thread [n = {}, last_recent_exec_n = {}]".format(
-                n, self.last_recent_exec_n)
+        assert (
+            self.last_recent_exec_n is None or n > self.last_recent_exec_n
+        ), f"Updater is not used in sequence in a single simulation thread [n = {n}, last_recent_exec_n = {self.last_recent_exec_n}]"
+
         if n not in self._executors:
             # Bind executor to sample_and_cholesky_update
             ex_args = {

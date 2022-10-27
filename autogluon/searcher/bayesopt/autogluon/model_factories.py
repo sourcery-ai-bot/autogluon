@@ -40,7 +40,7 @@ def resource_kernel_factory(
         elif name == 'exp-decay-delta1':
             delta_fixed_value = 1.0
         else:
-            raise AssertionError("name = '{}' not supported".format(name))
+            raise AssertionError(f"name = '{name}' not supported")
         res_kernel = ExponentialDecayResourcesKernelFunction(
             kernel_x, mean_x, gamma_init=0.5 * max_metric_value,
             delta_fixed_value=delta_fixed_value,
